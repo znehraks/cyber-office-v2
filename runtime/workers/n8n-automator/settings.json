@@ -1,0 +1,9 @@
+{
+  "role": "n8n-automator",
+  "source_role": "n8n-automator",
+  "model": "sonnet",
+  "tier": "standard",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "n8n-automator specialist role"
+}

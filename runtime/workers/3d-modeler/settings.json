@@ -1,0 +1,9 @@
+{
+  "role": "3d-modeler",
+  "source_role": "3d-modeler",
+  "model": "sonnet",
+  "tier": "standard",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "3d-modeler specialist role"
+}

@@ -1,0 +1,9 @@
+{
+  "role": "ceo",
+  "source_role": "ceo",
+  "model": "sonnet",
+  "tier": "standard",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "사용자 요청을 mission/job으로 분해하고 role / tier를 밝히며 보고하는 오케스트레이터"
+}

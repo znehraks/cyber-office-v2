@@ -1,0 +1,256 @@
+{
+  "generated_at": "2026-04-10T14:57:47.675Z",
+  "legacy_roles": [
+    "researcher",
+    "creative-brainstormer",
+    "fullstack-dev",
+    "app-dev",
+    "qa",
+    "ui-ux-designer",
+    "ai-creator",
+    "3d-modeler",
+    "ar-xr-master",
+    "n8n-automator",
+    "devil-advocate",
+    "legal-reviewer",
+    "writer",
+    "marketer",
+    "sales",
+    "asset-manager"
+  ],
+  "allowed_high_roles": [
+    "planner-high",
+    "researcher-high",
+    "devil-advocate-high",
+    "legal-reviewer-high",
+    "ui-ux-designer-high"
+  ],
+  "routing_rules": {
+    "quick": "explore-low",
+    "research": "researcher",
+    "standard": "fullstack-dev",
+    "architecture": "planner-high",
+    "critique": "devil-advocate-high",
+    "visual": "ui-ux-designer",
+    "visual-high": "ui-ux-designer-high",
+    "high-risk": "planner-high"
+  },
+  "roles": [
+    {
+      "name": "ceo",
+      "kind": "control",
+      "model": "sonnet",
+      "tier": "standard",
+      "effort": "medium",
+      "sourceRole": "ceo",
+      "description": "사용자 요청을 mission/job으로 분해하고 role / tier를 밝히며 보고하는 오케스트레이터"
+    },
+    {
+      "name": "god",
+      "kind": "control",
+      "model": "sonnet",
+      "tier": "admin",
+      "effort": "medium",
+      "sourceRole": "god",
+      "description": "관리자 전용 운영자. 공개 ingress가 아니라 recovery와 override를 담당"
+    },
+    {
+      "name": "explore-low",
+      "kind": "utility",
+      "model": "haiku",
+      "tier": "low",
+      "effort": "low",
+      "sourceRole": "researcher",
+      "description": "빠른 triage, lightweight fact gathering, quick checks 전용"
+    },
+    {
+      "name": "planner-high",
+      "kind": "high",
+      "model": "opus",
+      "tier": "high",
+      "effort": "high",
+      "sourceRole": "ceo",
+      "description": "고난도 설계 판단, 구조 분해, 리스크가 큰 architecture work 전용"
+    },
+    {
+      "name": "researcher-high",
+      "kind": "high",
+      "model": "opus",
+      "tier": "high",
+      "effort": "high",
+      "sourceRole": "researcher",
+      "description": "깊은 조사와 대안 비교가 필요한 high-risk research 전용"
+    },
+    {
+      "name": "devil-advocate-high",
+      "kind": "high",
+      "model": "opus",
+      "tier": "high",
+      "effort": "high",
+      "sourceRole": "devil-advocate",
+      "description": "구조적 반례 검토와 리스크 식별 전용"
+    },
+    {
+      "name": "legal-reviewer-high",
+      "kind": "high",
+      "model": "opus",
+      "tier": "high",
+      "effort": "high",
+      "sourceRole": "legal-reviewer",
+      "description": "고위험 법률/정책 검토 전용"
+    },
+    {
+      "name": "ui-ux-designer-high",
+      "kind": "high",
+      "model": "opus",
+      "tier": "high",
+      "effort": "high",
+      "sourceRole": "ui-ux-designer",
+      "description": "고난도 UI/UX 전략과 중요한 visual review 전용"
+    },
+    {
+      "name": "researcher",
+      "kind": "specialist",
+      "model": "sonnet",
+      "tier": "standard",
+      "effort": "medium",
+      "sourceRole": "researcher",
+      "description": "researcher specialist role"
+    },
+    {
+      "name": "creative-brainstormer",
+      "kind": "specialist",
+      "model": "sonnet",
+      "tier": "standard",
+      "effort": "medium",
+      "sourceRole": "creative-brainstormer",
+      "description": "creative-brainstormer specialist role"
+    },
+    {
+      "name": "fullstack-dev",
+      "kind": "specialist",
+      "model": "sonnet",
+      "tier": "standard",
+      "effort": "medium",
+      "sourceRole": "fullstack-dev",
+      "description": "fullstack-dev specialist role"
+    },
+    {
+      "name": "app-dev",
+      "kind": "specialist",
+      "model": "sonnet",
+      "tier": "standard",
+      "effort": "medium",
+      "sourceRole": "app-dev",
+      "description": "app-dev specialist role"
+    },
+    {
+      "name": "qa",
+      "kind": "specialist",
+      "model": "sonnet",
+      "tier": "standard",
+      "effort": "medium",
+      "sourceRole": "qa",
+      "description": "qa specialist role"
+    },
+    {
+      "name": "ui-ux-designer",
+      "kind": "specialist",
+      "model": "sonnet",
+      "tier": "standard",
+      "effort": "medium",
+      "sourceRole": "ui-ux-designer",
+      "description": "ui-ux-designer specialist role"
+    },
+    {
+      "name": "ai-creator",
+      "kind": "specialist",
+      "model": "sonnet",
+      "tier": "standard",
+      "effort": "medium",
+      "sourceRole": "ai-creator",
+      "description": "ai-creator specialist role"
+    },
+    {
+      "name": "3d-modeler",
+      "kind": "specialist",
+      "model": "sonnet",
+      "tier": "standard",
+      "effort": "medium",
+      "sourceRole": "3d-modeler",
+      "description": "3d-modeler specialist role"
+    },
+    {
+      "name": "ar-xr-master",
+      "kind": "specialist",
+      "model": "sonnet",
+      "tier": "standard",
+      "effort": "medium",
+      "sourceRole": "ar-xr-master",
+      "description": "ar-xr-master specialist role"
+    },
+    {
+      "name": "n8n-automator",
+      "kind": "specialist",
+      "model": "sonnet",
+      "tier": "standard",
+      "effort": "medium",
+      "sourceRole": "n8n-automator",
+      "description": "n8n-automator specialist role"
+    },
+    {
+      "name": "devil-advocate",
+      "kind": "specialist",
+      "model": "sonnet",
+      "tier": "standard",
+      "effort": "medium",
+      "sourceRole": "devil-advocate",
+      "description": "devil-advocate specialist role"
+    },
+    {
+      "name": "legal-reviewer",
+      "kind": "specialist",
+      "model": "sonnet",
+      "tier": "standard",
+      "effort": "medium",
+      "sourceRole": "legal-reviewer",
+      "description": "legal-reviewer specialist role"
+    },
+    {
+      "name": "writer",
+      "kind": "specialist",
+      "model": "haiku",
+      "tier": "low",
+      "effort": "medium",
+      "sourceRole": "writer",
+      "description": "writer specialist role"
+    },
+    {
+      "name": "marketer",
+      "kind": "specialist",
+      "model": "sonnet",
+      "tier": "standard",
+      "effort": "medium",
+      "sourceRole": "marketer",
+      "description": "marketer specialist role"
+    },
+    {
+      "name": "sales",
+      "kind": "specialist",
+      "model": "sonnet",
+      "tier": "standard",
+      "effort": "medium",
+      "sourceRole": "sales",
+      "description": "sales specialist role"
+    },
+    {
+      "name": "asset-manager",
+      "kind": "specialist",
+      "model": "haiku",
+      "tier": "low",
+      "effort": "medium",
+      "sourceRole": "asset-manager",
+      "description": "asset-manager specialist role"
+    }
+  ]
+}

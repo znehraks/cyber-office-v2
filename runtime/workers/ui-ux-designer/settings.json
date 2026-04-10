@@ -1,0 +1,9 @@
+{
+  "role": "ui-ux-designer",
+  "source_role": "ui-ux-designer",
+  "model": "sonnet",
+  "tier": "standard",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "ui-ux-designer specialist role"
+}

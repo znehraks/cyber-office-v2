@@ -1,0 +1,9 @@
+{
+  "role": "sales",
+  "source_role": "sales",
+  "model": "sonnet",
+  "tier": "standard",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "sales specialist role"
+}

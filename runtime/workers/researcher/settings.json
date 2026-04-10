@@ -1,0 +1,9 @@
+{
+  "role": "researcher",
+  "source_role": "researcher",
+  "model": "sonnet",
+  "tier": "standard",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "researcher specialist role"
+}

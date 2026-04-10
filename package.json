@@ -1,0 +1,14 @@
+{
+  "name": "cyber-office-v2",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.runtime.test.js",
+    "doctor": "node ./src/cli.js doctor",
+    "status": "node ./src/cli.js status",
+    "reset-runtime": "bash ./scripts/reset-runtime-state.sh",
+    "smoke": "CLAUDE_BIN=node CO_SMOKE_EXTRA_ARGS_JSON='[\"/Users/designc/Documents/cyber-office-v2/test/fixtures/fake-claude-success.js\"]' node ./src/cli.js smoke",
+    "ci": "npm run reset-runtime && node ./src/cli.js init && node ./src/cli.js doctor && npm test && npm run reset-runtime && npm run smoke"
+  }
+}

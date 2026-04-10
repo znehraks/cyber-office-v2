@@ -1,0 +1,9 @@
+{
+  "role": "ui-ux-designer-high",
+  "source_role": "ui-ux-designer",
+  "model": "opus",
+  "tier": "high",
+  "effort": "high",
+  "allowed_tools": [],
+  "notes": "고난도 UI/UX 전략과 중요한 visual review 전용"
+}

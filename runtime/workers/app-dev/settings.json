@@ -1,0 +1,9 @@
+{
+  "role": "app-dev",
+  "source_role": "app-dev",
+  "model": "sonnet",
+  "tier": "standard",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "app-dev specialist role"
+}

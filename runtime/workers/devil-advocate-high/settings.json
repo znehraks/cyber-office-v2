@@ -1,0 +1,9 @@
+{
+  "role": "devil-advocate-high",
+  "source_role": "devil-advocate",
+  "model": "opus",
+  "tier": "high",
+  "effort": "high",
+  "allowed_tools": [],
+  "notes": "구조적 반례 검토와 리스크 식별 전용"
+}

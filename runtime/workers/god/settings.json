@@ -1,0 +1,9 @@
+{
+  "role": "god",
+  "source_role": "god",
+  "model": "sonnet",
+  "tier": "admin",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "관리자 전용 운영자. 공개 ingress가 아니라 recovery와 override를 담당"
+}

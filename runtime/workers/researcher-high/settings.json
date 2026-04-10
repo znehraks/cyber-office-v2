@@ -1,0 +1,9 @@
+{
+  "role": "researcher-high",
+  "source_role": "researcher",
+  "model": "opus",
+  "tier": "high",
+  "effort": "high",
+  "allowed_tools": [],
+  "notes": "깊은 조사와 대안 비교가 필요한 high-risk research 전용"
+}

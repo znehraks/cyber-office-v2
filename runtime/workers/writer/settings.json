@@ -1,0 +1,9 @@
+{
+  "role": "writer",
+  "source_role": "writer",
+  "model": "haiku",
+  "tier": "low",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "writer specialist role"
+}

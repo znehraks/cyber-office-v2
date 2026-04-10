@@ -1,0 +1,9 @@
+{
+  "role": "fullstack-dev",
+  "source_role": "fullstack-dev",
+  "model": "sonnet",
+  "tier": "standard",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "fullstack-dev specialist role"
+}

@@ -1,0 +1,9 @@
+{
+  "role": "legal-reviewer",
+  "source_role": "legal-reviewer",
+  "model": "sonnet",
+  "tier": "standard",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "legal-reviewer specialist role"
+}

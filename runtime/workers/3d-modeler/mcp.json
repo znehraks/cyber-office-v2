@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "blender-mcp": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "blender-mcp"
+      ],
+      "env": {}
+    },
+    "playwriter": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "playwriter"
+      ]
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "role": "ai-creator",
+  "source_role": "ai-creator",
+  "model": "sonnet",
+  "tier": "standard",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "ai-creator specialist role"
+}

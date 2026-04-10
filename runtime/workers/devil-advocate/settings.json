@@ -1,0 +1,9 @@
+{
+  "role": "devil-advocate",
+  "source_role": "devil-advocate",
+  "model": "sonnet",
+  "tier": "standard",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "devil-advocate specialist role"
+}

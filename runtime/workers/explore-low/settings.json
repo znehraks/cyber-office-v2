@@ -1,0 +1,9 @@
+{
+  "role": "explore-low",
+  "source_role": "researcher",
+  "model": "haiku",
+  "tier": "low",
+  "effort": "low",
+  "allowed_tools": [],
+  "notes": "빠른 triage, lightweight fact gathering, quick checks 전용"
+}

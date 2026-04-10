@@ -1,0 +1,47 @@
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "env": {}
+    },
+    "fal-ai": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "fal-mcp-server"
+      ],
+      "env": {
+        "FAL_KEY": "${FAL_KEY}"
+      }
+    },
+    "comfyui": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "mcp-comfyui"
+      ],
+      "env": {
+        "COMFYUI_HOST": "127.0.0.1",
+        "COMFYUI_PORT": "8188"
+      },
+      "disabled": true
+    },
+    "playwriter": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "playwriter"
+      ]
+    },
+    "notion": {
+      "type": "http",
+      "url": "https://mcp.notion.com/mcp"
+    }
+  }
+}

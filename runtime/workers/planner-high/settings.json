@@ -1,0 +1,9 @@
+{
+  "role": "planner-high",
+  "source_role": "ceo",
+  "model": "opus",
+  "tier": "high",
+  "effort": "high",
+  "allowed_tools": [],
+  "notes": "고난도 설계 판단, 구조 분해, 리스크가 큰 architecture work 전용"
+}

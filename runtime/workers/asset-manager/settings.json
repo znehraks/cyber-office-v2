@@ -1,0 +1,9 @@
+{
+  "role": "asset-manager",
+  "source_role": "asset-manager",
+  "model": "haiku",
+  "tier": "low",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "asset-manager specialist role"
+}

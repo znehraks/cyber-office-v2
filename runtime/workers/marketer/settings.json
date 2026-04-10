@@ -1,0 +1,9 @@
+{
+  "role": "marketer",
+  "source_role": "marketer",
+  "model": "sonnet",
+  "tier": "standard",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "marketer specialist role"
+}

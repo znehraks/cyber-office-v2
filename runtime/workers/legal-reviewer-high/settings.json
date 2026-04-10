@@ -1,0 +1,9 @@
+{
+  "role": "legal-reviewer-high",
+  "source_role": "legal-reviewer",
+  "model": "opus",
+  "tier": "high",
+  "effort": "high",
+  "allowed_tools": [],
+  "notes": "고위험 법률/정책 검토 전용"
+}

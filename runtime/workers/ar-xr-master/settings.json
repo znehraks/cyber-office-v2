@@ -1,0 +1,9 @@
+{
+  "role": "ar-xr-master",
+  "source_role": "ar-xr-master",
+  "model": "sonnet",
+  "tier": "standard",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "ar-xr-master specialist role"
+}

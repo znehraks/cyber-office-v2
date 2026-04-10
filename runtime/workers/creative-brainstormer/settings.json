@@ -1,0 +1,9 @@
+{
+  "role": "creative-brainstormer",
+  "source_role": "creative-brainstormer",
+  "model": "sonnet",
+  "tier": "standard",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "creative-brainstormer specialist role"
+}

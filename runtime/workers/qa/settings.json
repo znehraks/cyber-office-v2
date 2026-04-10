@@ -1,0 +1,9 @@
+{
+  "role": "qa",
+  "source_role": "qa",
+  "model": "sonnet",
+  "tier": "standard",
+  "effort": "medium",
+  "allowed_tools": [],
+  "notes": "qa specialist role"
+}
