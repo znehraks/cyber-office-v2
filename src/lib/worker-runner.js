@@ -58,7 +58,6 @@ function buildClaudeArgs(root, job, roleAssets, packet, artifactDir, options) {
     "stream-json",
     "--verbose",
     "--no-session-persistence",
-    "--bare",
     "--strict-mcp-config",
     "--model",
     roleAssets.settings.model,

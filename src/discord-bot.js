@@ -40,7 +40,17 @@ async function handleCeoMessage(message, client) {
   if (!content) return;
 
   const replyChannel = await ensureReplyChannel(message);
-  await replyChannel.send("현재 단계: 요청 접수\nrole / tier: ceo / standard\n방금 한 일: 요청을 받음\n발견: 실행 준비\n다음 일: 분류 및 worker 배정");
+  await replyChannel.send(
+    [
+      "요청 잘 받았습니다. 바로 확인해서 진행해볼게요.",
+      "",
+      "현재 단계: 요청 접수",
+      "role / tier: ceo / standard",
+      "방금 한 일: 요청을 받음",
+      "발견: 실행 준비",
+      "다음 일: 분류 및 worker 배정",
+    ].join("\n"),
+  );
 
   const result = await executeMissionFlow(root, {
     source: "discord",
@@ -55,6 +65,8 @@ async function handleCeoMessage(message, client) {
 
   await replyChannel.send(
     [
+      "작업이 마무리됐습니다. 아래 결과를 확인하시면 됩니다.",
+      "",
       `mission: ${result.missionId}`,
       `worker: ${result.routing.worker} / ${result.routing.tier}`,
       `summary: ${result.workerResult.summaryPath}`,
@@ -138,7 +150,7 @@ async function main() {
       const mentioned = client.user ? message.mentions.has(client.user) : false;
       if (!isDM && !mentioned) return;
       await handleCeoMessage(message, client).catch(async (error) => {
-        await message.reply(`ceo error: ${error.message}`);
+        await message.reply(`진행 중 오류가 발생했습니다.\nceo error: ${error.message}`);
       });
       return;
     }
@@ -147,7 +159,7 @@ async function main() {
     const mentioned = client.user ? message.mentions.has(client.user) : false;
     if (!isDM && !mentioned) return;
     await handleGodMessage(message).catch(async (error) => {
-      await message.reply(`god error: ${error.message}`);
+      await message.reply(`관리자 작업 중 오류가 발생했습니다.\ngod error: ${error.message}`);
     });
   });
 

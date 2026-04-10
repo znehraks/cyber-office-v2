@@ -3,8 +3,20 @@ import path from "node:path";
 import { appendEvent } from "./events.js";
 import { hashValue, openExclusive, readJson, runtimePath } from "./runtime.js";
 
+function buildLead(input) {
+  if (input.stage === "최종 완료") {
+    return "작업이 잘 마무리되어 결과를 정리해드릴게요.";
+  }
+  if (input.stage === "요청 접수") {
+    return "요청 잘 받았습니다. 진행 상황을 바로 공유드릴게요.";
+  }
+  return "진행 상황을 이어서 공유드릴게요.";
+}
+
 function renderReport(input) {
   return [
+    buildLead(input),
+    "",
     `현재 단계: ${input.stage}`,
     `role / tier: ${input.role} / ${input.tier}`,
     `방금 한 일: ${input.completed}`,

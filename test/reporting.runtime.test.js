@@ -52,4 +52,6 @@ test("duplicate report keys only emit one user-facing report", async () => {
 
   const reports = await fs.readdir(path.join(root, "runtime", "state", "reports"));
   assert.equal(reports.length, 1);
+  assert.match(first.content, /요청 잘 받았습니다/);
+  assert.match(first.content, /현재 단계: 요청 접수/);
 });
