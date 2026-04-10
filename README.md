@@ -81,3 +81,29 @@ npm run supervisor:daemon
 - `ceo`: DM 또는 bot mention을 받아 thread를 만들고 `executeMissionFlow`를 수행
 - `god`: `status`, `doctor`, `supervisor lease`, `supervisor tick`, `supervisor daemon` 명령 처리
 - 실제 worker 실행은 `claude` 인증과 role별 MCP 환경에 의존
+
+## launchd
+
+macOS에서 상시 실행:
+
+```bash
+npm run launchd:install
+npm run launchd:status
+```
+
+제거:
+
+```bash
+npm run launchd:uninstall
+```
+
+설치 시 아래 파일이 생성된다.
+
+- env: `~/.config/cyber-office-v2/launchd.env`
+- agents: `~/Library/LaunchAgents/com.znehraks.cyber-office-v2.{ceo,god,supervisor}.plist`
+- logs: `~/Library/Logs/cyber-office-v2/*.log`
+- service snapshot: `~/.local/share/cyber-office-v2/current`
+
+`launchd.env`에 실제 Discord 토큰을 넣은 뒤 `npm run launchd:install`을 다시 실행하면 된다.
+토큰이 비어 있으면 `supervisor`만 즉시 bootstrap되고, `ceo`/`god`는 plist만 설치된 채 대기한다. 이 상태에서 토큰을 채운 뒤 `npm run launchd:install`을 다시 실행하면 된다.
+repo가 `~/Documents` 아래에 있어도 launchd는 직접 repo를 읽지 않고 service snapshot에서 실행된다. 코드를 업데이트했으면 `npm run launchd:install`로 snapshot을 다시 동기화해야 한다.

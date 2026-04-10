@@ -2,5 +2,5 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT_DIR"
-exec node ./src/cli.js supervisor daemon "supervisor-$(printf '%s' $$)"
+export CO_ROOT_DIR="$ROOT_DIR"
+exec node "$ROOT_DIR/src/cli.js" supervisor daemon "supervisor-$(printf '%s' $$)"

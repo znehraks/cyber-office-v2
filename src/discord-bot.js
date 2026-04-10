@@ -13,8 +13,9 @@ import { executeMissionFlow, parseGodCommand } from "./lib/orchestrator.js";
 import { acquireSupervisorLease, supervisorTick } from "./lib/supervisor.js";
 import { ensureRuntimeLayout } from "./lib/runtime.js";
 import { runDoctor } from "./lib/doctor.js";
+import { resolveRepoRoot } from "./lib/root.js";
 
-const root = process.cwd();
+const root = resolveRepoRoot(import.meta.url);
 const botRole = (process.env.CO_DISCORD_ROLE ?? "ceo").toLowerCase();
 const token =
   botRole === "god" ? process.env.DISCORD_GOD_BOT_TOKEN : process.env.DISCORD_CEO_BOT_TOKEN;

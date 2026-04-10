@@ -2,5 +2,5 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT_DIR"
-CO_DISCORD_ROLE=god exec node ./src/discord-bot.js
+export CO_ROOT_DIR="$ROOT_DIR"
+CO_DISCORD_ROLE=god exec node "$ROOT_DIR/src/discord-bot.js"

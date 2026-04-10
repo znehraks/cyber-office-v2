@@ -15,8 +15,9 @@ import { runSmokeScenario } from "./lib/smoke.js";
 import { acquireSupervisorLease, supervisorTick } from "./lib/supervisor.js";
 import { runWorker } from "./lib/worker-runner.js";
 import { executeMissionFlow } from "./lib/orchestrator.js";
+import { resolveRepoRoot } from "./lib/root.js";
 
-const cwd = process.cwd();
+const cwd = resolveRepoRoot(import.meta.url);
 
 function usage() {
   console.log(`co - cyber-office v2
