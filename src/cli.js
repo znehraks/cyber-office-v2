@@ -14,6 +14,7 @@ import { ensureRuntimeLayout, readJson, runtimePath } from "./lib/runtime.js";
 import { runSmokeScenario } from "./lib/smoke.js";
 import { acquireSupervisorLease, supervisorTick } from "./lib/supervisor.js";
 import { runWorker } from "./lib/worker-runner.js";
+import { executeMissionFlow } from "./lib/orchestrator.js";
 
 const cwd = process.cwd();
 
@@ -32,6 +33,7 @@ Usage:
   co supervisor tick <owner_pid>
   co supervisor daemon <owner_pid>
   co smoke
+  co dispatch <message_id> <request>
   co closeout verify <mission_id>
   co report <mission_id> <report_key> <stage> <role> <tier> <completed> <findings> <next>
 `);
@@ -181,6 +183,22 @@ async function main() {
 
   if (command === "smoke") {
     const result = await runSmokeScenario(cwd, {
+      claudeBin: process.env.CLAUDE_BIN,
+      extraArgs: process.env.CO_SMOKE_EXTRA_ARGS_JSON
+        ? JSON.parse(process.env.CO_SMOKE_EXTRA_ARGS_JSON)
+        : undefined,
+    });
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (command === "dispatch") {
+    const [messageId, ...requestParts] = args;
+    const result = await executeMissionFlow(cwd, {
+      source: "discord",
+      messageId,
+      chatId: "cli",
+      request: requestParts.join(" ").trim(),
       claudeBin: process.env.CLAUDE_BIN,
       extraArgs: process.env.CO_SMOKE_EXTRA_ARGS_JSON
         ? JSON.parse(process.env.CO_SMOKE_EXTRA_ARGS_JSON)

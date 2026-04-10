@@ -9,6 +9,12 @@
     "status": "node ./src/cli.js status",
     "reset-runtime": "bash ./scripts/reset-runtime-state.sh",
     "smoke": "CLAUDE_BIN=node CO_SMOKE_EXTRA_ARGS_JSON='[\"/Users/designc/Documents/cyber-office-v2/test/fixtures/fake-claude-success.js\"]' node ./src/cli.js smoke",
-    "ci": "npm run reset-runtime && node ./src/cli.js init && node ./src/cli.js doctor && npm test && npm run reset-runtime && npm run smoke"
+    "ci": "npm run reset-runtime && node ./src/cli.js init && node ./src/cli.js doctor && npm test && npm run reset-runtime && npm run smoke",
+    "bot:ceo": "node ./src/discord-bot.js",
+    "bot:god": "CO_DISCORD_ROLE=god node ./src/discord-bot.js",
+    "supervisor:daemon": "node ./src/cli.js supervisor daemon supervisor-daemon"
+  },
+  "dependencies": {
+    "discord.js": "^14.26.2"
   }
 }

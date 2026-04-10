@@ -9,6 +9,7 @@
 ./bin/co doctor
 ./bin/co status
 ./bin/co smoke
+./bin/co dispatch 12345 "로그인 이슈를 조사해줘"
 ./bin/co supervisor lease "$(printf '%s' $$)"
 ./bin/co supervisor tick "$(printf '%s' $$)"
 ```
@@ -21,9 +22,12 @@ npm run smoke
 npm run ci
 ```
 
-- `npm test`: 하네스 회귀 테스트 16개
+- `npm test`: 하네스 회귀 테스트 19개
 - `npm run smoke`: fake Claude worker로 `ingress -> report -> job -> packet -> worker -> closeout` end-to-end smoke 실행
 - `npm run ci`: runtime reset → init → doctor → 전체 테스트 → clean smoke 를 한 번에 실행
+- `npm run bot:ceo`: Discord CEO bot 실행
+- `npm run bot:god`: Discord GOD bot 실행
+- `npm run supervisor:daemon`: supervisor daemon 실행
 - 실제 Claude로 돌리려면:
 
 ```bash
@@ -38,6 +42,7 @@ npm run ci
 - `runtime/workers/*`: role별 `prompt.txt`, `settings.json`, `mcp.json`
 - `runtime/*`: mission/job/event/artifact/ingress/packet/state 저장소
 - `src/lib/*`: runtime 하네스 구현
+- `src/discord-bot.js`: Discord ceo/god bot 엔트리
 - `test/*.runtime.test.js`: 멱등성/closeout/worker/supervisor 회귀 테스트
 
 ## 런처 전환
@@ -52,3 +57,27 @@ npm run ci
 - GitHub Actions: [.github/workflows/ci.yml](/Users/designc/Documents/cyber-office-v2/.github/workflows/ci.yml)
 - 트리거: `push` to `main`, `pull_request`
 - 실행 내용: `npm run ci`
+
+## Discord 운영
+
+필수 환경변수:
+
+```bash
+export DISCORD_CEO_BOT_TOKEN=...
+export DISCORD_GOD_BOT_TOKEN=...
+export DISCORD_ADMIN_USER_IDS=801833538605285416
+```
+
+실행:
+
+```bash
+npm run bot:ceo
+npm run bot:god
+npm run supervisor:daemon
+```
+
+현재 동작:
+
+- `ceo`: DM 또는 bot mention을 받아 thread를 만들고 `executeMissionFlow`를 수행
+- `god`: `status`, `doctor`, `supervisor lease`, `supervisor tick`, `supervisor daemon` 명령 처리
+- 실제 worker 실행은 `claude` 인증과 role별 MCP 환경에 의존

@@ -59,7 +59,6 @@ export async function bootstrapRuntimeWorkers(root) {
   await ensureRuntimeLayout(root);
 
   const registry = {
-    generated_at: new Date().toISOString(),
     legacy_roles: LEGACY_SPECIALIST_ROLES,
     allowed_high_roles: ALLOWED_HIGH_ROLES,
     routing_rules: ROUTING_RULES,
