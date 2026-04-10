@@ -9,6 +9,7 @@ import {
 } from "discord.js";
 
 import { bootstrapRuntimeWorkers } from "./lib/bootstrap.js";
+import { ensureReplyChannel, stripBotMention } from "./lib/discord-routing.js";
 import { executeMissionFlow, parseGodCommand } from "./lib/orchestrator.js";
 import { acquireSupervisorLease, supervisorTick } from "./lib/supervisor.js";
 import { ensureRuntimeLayout } from "./lib/runtime.js";
@@ -34,21 +35,8 @@ if (!token) {
   );
 }
 
-function stripMention(message, client) {
-  const mention = client.user ? new RegExp(`<@!?${client.user.id}>`, "g") : null;
-  return mention ? message.replace(mention, "").trim() : message.trim();
-}
-
-async function ensureReplyChannel(message) {
-  if (message.channel.isThread()) return message.channel;
-  if (message.channel.type === ChannelType.DM) return message.channel;
-
-  const threadName = `🧠 ${message.author.username} ${new Date().toISOString().slice(0, 16)}`;
-  return message.startThread({ name: threadName, autoArchiveDuration: 60 });
-}
-
 async function handleCeoMessage(message, client) {
-  const content = stripMention(message.content, client);
+  const content = stripBotMention(message, client);
   if (!content) return;
 
   const replyChannel = await ensureReplyChannel(message);

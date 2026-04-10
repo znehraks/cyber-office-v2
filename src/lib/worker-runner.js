@@ -55,6 +55,7 @@ function buildClaudeArgs(root, job, roleAssets, packet, artifactDir, options) {
     buildUserPrompt(job, packet, artifactDir),
     "--output-format",
     "stream-json",
+    "--verbose",
     "--no-session-persistence",
     "--bare",
     "--strict-mcp-config",
