@@ -61,6 +61,8 @@ load_service() {
   launchctl kickstart -k "gui/$(id -u)/$label" || true
 }
 
+rm -f "$SERVICE_ROOT/runtime/state/supervisor.json"
+
 load_service "com.znehraks.cyber-office-v2.supervisor"
 
 if [[ -n "${DISCORD_CEO_BOT_TOKEN:-}" ]]; then

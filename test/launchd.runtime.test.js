@@ -23,6 +23,7 @@ test("launchd templates and scripts are wired", async () => {
   assert.match(install, /Skipped god bootstrap/);
   assert.match(install, /com\.znehraks\.cyber-office-v2\.supervisor/);
   assert.match(install, /\.local\/share\/cyber-office-v2\/current/);
+  assert.match(install, /runtime\/state\/supervisor\.json/);
 
   for (const [label, plist] of [
     ["ceo", ceoPlist],
