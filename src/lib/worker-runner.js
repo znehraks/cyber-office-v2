@@ -3,6 +3,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 
 import { appendEvent } from "./events.js";
+import { parseClaudeStreamOutput } from "./claude-output.js";
 import { assertPacketRefs, readJob, readPacket, transitionJobStatus, updateJob } from "./jobs.js";
 import { findRole } from "./roles.js";
 import { exists, nowIso, runtimePath } from "./runtime.js";
@@ -152,20 +153,44 @@ export async function runWorker(root, roleName, jobId, options = {}) {
   });
 
   const summaryPath = path.join(artifactDir, "summary.md");
-  const hasSummary = await exists(summaryPath);
+  const parsedOutput = parseClaudeStreamOutput(result.stdout);
+  let hasSummary = await exists(summaryPath);
 
-  if (result.code !== 0 || !hasSummary) {
-    await transitionJobStatus(root, jobId, ["running"], "failed", { error: result.stderr || "worker failed" }, { now: options.now });
+  if (!hasSummary && result.code === 0 && parsedOutput.summaryText && !parsedOutput.errorText) {
+    await fs.writeFile(summaryPath, `${parsedOutput.summaryText}\n`, "utf8");
+    hasSummary = true;
+  }
+
+  const failureMessage = [
+    result.stderr.trim(),
+    parsedOutput.errorText,
+    result.code !== 0 ? `Worker exited with code ${result.code}` : "",
+    !hasSummary ? `Worker completed without summary.md: ${summaryPath}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  if (result.code !== 0 || !hasSummary || parsedOutput.errorText) {
+    await transitionJobStatus(
+      root,
+      jobId,
+      ["running"],
+      "failed",
+      { error: failureMessage || "worker failed" },
+      { now: options.now },
+    );
     await appendEvent(
       root,
       "worker.failed",
-      { mission_id: job.mission_id, job_id: job.job_id, worker: job.worker, stderr: result.stderr.trim() },
+      {
+        mission_id: job.mission_id,
+        job_id: job.job_id,
+        worker: job.worker,
+        stderr: failureMessage,
+      },
       { now: options.now },
     );
-    if (!hasSummary) {
-      throw new Error(`Worker completed without summary.md: ${summaryPath}`);
-    }
-    throw new Error(`Worker exited with code ${result.code}`);
+    throw new Error(failureMessage || "worker failed");
   }
 
   await updateJob(
