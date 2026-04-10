@@ -12,4 +12,4 @@ do
   rm -f "$LAUNCHD_DIR/$label.plist"
 done
 
-echo "Removed launchd services."
+echo "Removed legacy launchd services."

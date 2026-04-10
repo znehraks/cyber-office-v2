@@ -97,6 +97,27 @@ test("stale supervisor lease can be taken over by a new owner", async () => {
   assert.equal(renewed.taken_over, true);
 });
 
+test("dead supervisor pid can be taken over before lease expiry", async () => {
+  const root = await makeRoot();
+
+  await acquireSupervisorLease(root, {
+    ownerPid: "1001",
+    now: "2026-04-10T09:00:00.000Z",
+    leaseMs: 300_000,
+    isOwnerAlive: () => true,
+  });
+
+  const renewed = await acquireSupervisorLease(root, {
+    ownerPid: "2002",
+    now: "2026-04-10T09:01:00.000Z",
+    leaseMs: 300_000,
+    isOwnerAlive: (ownerPid) => ownerPid !== "1001",
+  });
+
+  assert.equal(renewed.owner_pid, "2002");
+  assert.equal(renewed.taken_over, true);
+});
+
 test("mission closeout is blocked by unresolved P1 backlog and passes once cleared", async () => {
   const root = await makeRoot();
   const mission = createMission({

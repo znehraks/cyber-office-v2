@@ -7,16 +7,18 @@
     "lint:shell": "bash -n ./scripts/*.sh",
     "test": "node --test test/*.runtime.test.js",
     "doctor": "node ./src/cli.js doctor",
+    "start": "node ./src/cli.js start",
+    "stop": "node ./src/cli.js stop",
+    "ps": "node ./src/cli.js ps",
+    "attach": "node ./src/cli.js attach",
+    "legacy:cleanup": "bash ./scripts/cleanup-legacy-launchd.sh",
     "status": "node ./src/cli.js status",
     "reset-runtime": "bash ./scripts/reset-runtime-state.sh",
     "smoke": "CLAUDE_BIN=node CO_SMOKE_EXTRA_ARGS_JSON='[\"/Users/designc/Documents/cyber-office-v2/test/fixtures/fake-claude-success.js\"]' node ./src/cli.js smoke",
     "ci": "npm run lint:shell && npm run reset-runtime && node ./src/cli.js init && node ./src/cli.js doctor && npm test && npm run reset-runtime && npm run smoke",
-    "bot:ceo": "node ./src/discord-bot.js",
-    "bot:god": "CO_DISCORD_ROLE=god node ./src/discord-bot.js",
-    "supervisor:daemon": "node ./src/cli.js supervisor daemon supervisor-daemon",
-    "launchd:install": "bash ./scripts/install-launchd-services.sh",
-    "launchd:uninstall": "bash ./scripts/uninstall-launchd-services.sh",
-    "launchd:status": "bash ./scripts/status-launchd-services.sh"
+    "bot:ceo": "bash ./scripts/run-discord-ceo.sh",
+    "bot:god": "bash ./scripts/run-discord-god.sh",
+    "supervisor:daemon": "bash ./scripts/run-supervisor-daemon.sh"
   },
   "dependencies": {
     "discord.js": "^14.26.2"

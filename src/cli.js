@@ -16,6 +16,7 @@ import { acquireSupervisorLease, supervisorTick } from "./lib/supervisor.js";
 import { runWorker } from "./lib/worker-runner.js";
 import { executeMissionFlow } from "./lib/orchestrator.js";
 import { resolveRepoRoot } from "./lib/root.js";
+import { attachSession, readSessionStatus, startSession, stopSession } from "./lib/session-manager.js";
 
 const cwd = resolveRepoRoot(import.meta.url);
 
@@ -25,6 +26,10 @@ function usage() {
 Usage:
   co init
   co doctor
+  co start
+  co stop
+  co ps
+  co attach
   co status [mission_id]
   co ingest discord-message <message_id> <request>
   co create-job <mission_id> <worker> <category> <priority> <task> <deliverable>
@@ -85,6 +90,29 @@ async function main() {
   if (command === "doctor") {
     const result = await runDoctor(cwd);
     console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (command === "start") {
+    const result = await startSession(cwd);
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (command === "stop") {
+    const result = await stopSession(cwd);
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (command === "ps") {
+    const result = await readSessionStatus(cwd);
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (command === "attach") {
+    await attachSession(cwd);
     return;
   }
 

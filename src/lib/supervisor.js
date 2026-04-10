@@ -7,6 +7,35 @@ function leaseFile(root) {
   return runtimePath(root, "state", "supervisor.json");
 }
 
+function isPidLike(value) {
+  return /^[0-9]+$/.test(String(value));
+}
+
+function processExists(pid) {
+  try {
+    process.kill(Number(pid), 0);
+    return true;
+  } catch (error) {
+    if (error && error.code === "EPERM") {
+      return true;
+    }
+    if (error && error.code === "ESRCH") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function isLeaseOwnerAlive(ownerPid, options = {}) {
+  if (options.isOwnerAlive) {
+    return options.isOwnerAlive(ownerPid);
+  }
+  if (!isPidLike(ownerPid)) {
+    return true;
+  }
+  return processExists(ownerPid);
+}
+
 export async function acquireSupervisorLease(root, options = {}) {
   const now = nowIso(options.now);
   const leaseMs = options.leaseMs ?? 65_000;
@@ -14,7 +43,8 @@ export async function acquireSupervisorLease(root, options = {}) {
 
   if (existing) {
     const expired = Date.parse(existing.lease_expires_at) <= Date.parse(now);
-    if (!expired && existing.owner_pid !== options.ownerPid) {
+    const ownerAlive = isLeaseOwnerAlive(existing.owner_pid, options);
+    if (!expired && ownerAlive && existing.owner_pid !== options.ownerPid) {
       throw new Error(`Supervisor lease held by ${existing.owner_pid}`);
     }
   }
