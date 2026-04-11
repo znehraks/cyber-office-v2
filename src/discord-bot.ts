@@ -11,9 +11,14 @@ import {
 } from "discord.js";
 
 import { bootstrapRuntimeWorkers } from "./lib/bootstrap.js";
+import {
+  renderDiscordFinalMessage,
+  renderDiscordReportBriefing,
+} from "./lib/discord-briefing.js";
 import { ensureReplyChannel, stripBotMention } from "./lib/discord-routing.js";
 import { runDoctor } from "./lib/doctor.js";
 import { loadRuntimeEnv } from "./lib/env.js";
+import { buildFollowUpReply } from "./lib/follow-up.js";
 import { executeMissionFlow, parseGodCommand } from "./lib/orchestrator.js";
 import { resolveRepoRoot } from "./lib/root.js";
 import { ensureRuntimeLayout } from "./lib/runtime.js";
@@ -83,6 +88,12 @@ async function handleCeoMessage(
   const replyChannel = await ensureReplyChannel(message);
   assertSendableChannel(replyChannel);
 
+  const followUp = await buildFollowUpReply(root, replyChannel.id);
+  if (followUp) {
+    await replyChannel.send(followUp.content);
+    return;
+  }
+
   const result = await executeMissionFlow(root, {
     source: "discord",
     eventType: "message_create",
@@ -90,19 +101,19 @@ async function handleCeoMessage(
     chatId: replyChannel.id,
     request: content,
     onReport: async (report) => {
-      await replyChannel.send(report.content);
+      await replyChannel.send(renderDiscordReportBriefing(report));
     },
   });
 
   await replyChannel.send(
-    [
-      "최종 정리 보고드립니다. 아래 경로와 상태를 확인하시면 됩니다.",
-      "",
-      `mission: ${result.missionId}`,
-      `worker: ${result.routing.worker} / ${result.routing.tier}`,
-      `summary: ${result.workerResult.summaryPath}`,
-      `closeout: ${result.closeout.status}`,
-    ].join("\n"),
+    renderDiscordFinalMessage({
+      requestBrief: result.requestBrief,
+      missionId: result.missionId,
+      worker: result.routing.worker,
+      tier: result.routing.tier,
+      summaryPath: result.workerResult.summaryPath,
+      closeoutStatus: result.closeout.status,
+    }),
   );
 }
 

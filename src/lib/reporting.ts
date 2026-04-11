@@ -1,3 +1,6 @@
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+
 import type { ReportInput, ReportRecord } from "../types/domain.js";
 import { parseReportRecord } from "../types/domain.js";
 import { appendEvent } from "./events.js";
@@ -37,6 +40,7 @@ export async function recordReport(
       stage: input.stage,
       role: input.role,
       tier: input.tier,
+      request_brief: input.requestBrief,
       request_summary: input.requestSummary,
       snapshot: input.snapshot,
       completed: input.completed,
@@ -76,4 +80,25 @@ export async function recordReport(
     const existing = await readJson(reportPath, parseReportRecord);
     return { ...existing, duplicate: true };
   }
+}
+
+export async function listMissionReports(
+  root: string,
+  missionId: string,
+): Promise<ReportRecord[]> {
+  const reportsDir = runtimePath(root, "state", "reports");
+  const reportFiles = (await fs.readdir(reportsDir)).filter((file) =>
+    file.endsWith(".json"),
+  );
+  const reports = await Promise.all(
+    reportFiles.map(async (file) =>
+      readJson(path.join(reportsDir, file), parseReportRecord, null),
+    ),
+  );
+
+  return reports
+    .filter(
+      (report): report is ReportRecord => report?.mission_id === missionId,
+    )
+    .sort((left, right) => left.report_key.localeCompare(right.report_key));
 }

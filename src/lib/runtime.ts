@@ -22,6 +22,7 @@ export const RUNTIME_DIRS = [
   "runtime/state/attempt-keys",
   "runtime/state/reports",
   "runtime/state/closeouts",
+  "runtime/state/thread-missions",
 ];
 
 export interface ResourceLockState {

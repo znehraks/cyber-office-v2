@@ -15,6 +15,7 @@ import {
   buildMissionCompletedReport,
   buildMissionCreatedReport,
   buildRetryReviewReport,
+  createRequestBrief,
   createRequestSummary,
 } from "./ceo-reporting.js";
 import { verifyMissionCloseout } from "./closeout.js";
@@ -24,6 +25,7 @@ import { readMission } from "./missions.js";
 import { recordReport } from "./reporting.js";
 import { ROUTING_RULES, findRole } from "./roles.js";
 import { runtimePath } from "./runtime.js";
+import { bindThreadMission, clearThreadMission } from "./thread-missions.js";
 import { runWorker } from "./worker-runner.js";
 
 const NICHE_ROUTING: Array<{
@@ -219,6 +221,7 @@ export async function executeMissionFlow(
   workerResult: Awaited<ReturnType<typeof runWorker>>;
   closeout: Awaited<ReturnType<typeof verifyMissionCloseout>>;
   reports: ReportRecord[];
+  requestBrief: string;
 }> {
   const request = String(options.request ?? "").trim();
   const routing = classifyRequest(request);
@@ -239,14 +242,22 @@ export async function executeMissionFlow(
   if (!mission) {
     throw new Error(`Mission missing after ingress: ${ingress.missionId}`);
   }
+  const chatId = mission.thread_ref?.chatId ?? options.chatId ?? null;
   const requestSummary = createRequestSummary(mission.user_request);
+  const requestBrief = createRequestBrief(mission.user_request);
   const reports: ReportRecord[] = [];
+
+  if (chatId) {
+    await bindThreadMission(root, chatId, mission.mission_id, {
+      now: options.now,
+    });
+  }
 
   const pushReport = async (
     reportKey: string,
     reportInput: Omit<
       Parameters<typeof recordReport>[1],
-      "missionId" | "reportKey" | "role" | "tier"
+      "missionId" | "reportKey" | "role" | "tier" | "requestBrief"
     >,
   ): Promise<ReportRecord> => {
     const report = await recordReport(root, {
@@ -254,6 +265,7 @@ export async function executeMissionFlow(
       reportKey,
       role: "ceo",
       tier: "standard",
+      requestBrief,
       ...reportInput,
     });
     reports.push(report);
@@ -317,6 +329,9 @@ export async function executeMissionFlow(
   );
 
   const closeout = await verifyMissionCloseout(root, mission.mission_id);
+  if (chatId) {
+    await clearThreadMission(root, chatId, mission.mission_id);
+  }
   return {
     missionId: mission.mission_id,
     ingress,
@@ -325,6 +340,7 @@ export async function executeMissionFlow(
     workerResult,
     closeout,
     reports,
+    requestBrief,
   };
 }
 

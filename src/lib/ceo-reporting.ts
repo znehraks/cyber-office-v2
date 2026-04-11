@@ -42,6 +42,15 @@ function describeCategory(category: RoutingCategory): string {
   return CATEGORY_LABELS[category];
 }
 
+export function createRequestBrief(request: string): string {
+  const normalized = normalizeWhitespace(request);
+  if (normalized === "") {
+    return "요청 처리";
+  }
+
+  return truncateText(normalized, 28);
+}
+
 export function createRequestSummary(request: string): string {
   const normalized = normalizeWhitespace(request);
   if (normalized === "") {

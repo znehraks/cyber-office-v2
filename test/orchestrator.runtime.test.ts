@@ -6,6 +6,10 @@ import { test } from "node:test";
 
 import { bootstrapRuntimeWorkers } from "../src/lib/bootstrap.js";
 import {
+  renderDiscordFinalMessage,
+  renderDiscordReportBriefing,
+} from "../src/lib/discord-briefing.js";
+import {
   classifyRequest,
   executeMissionFlow,
   parseGodCommand,
@@ -49,6 +53,7 @@ test("executeMissionFlow completes a one-shot ceo mission with reports and close
   assert.equal(result.workerResult.status, "completed");
   assert.equal(result.closeout.status, "passed");
   assert.equal(result.routing.worker, "researcher");
+  assert.equal(result.requestBrief, "로그인 이슈를 조사해줘");
   assert.deepEqual(
     result.reports.map((report) => report.stage),
     ["요청 검토", "담당 배정", "결과 확보", "마감 점검", "최종 마감"],
@@ -77,6 +82,30 @@ test("executeMissionFlow completes a one-shot ceo mission with reports and close
   assert.match(result.reports[2]?.content ?? "", /closeout 문서/);
   assert.match(result.reports[3]?.content ?? "", /재시도 필요 여부/);
   assert.match(result.reports[4]?.content ?? "", /mission 완료를 확정/);
+
+  const discordCombined = result.reports
+    .map((report) => renderDiscordReportBriefing(report))
+    .join("\n\n");
+  assert.match(discordCombined, /^---$/m);
+  assert.match(discordCombined, /^\[요청 검토] 로그인 이슈를 조사해줘$/m);
+  assert.doesNotMatch(
+    discordCombined,
+    /한눈요약:|요청 요지:|현재 단계:|방금 진행한 내용:|단계 전환 이유:/,
+  );
+  assert.match(discordCombined, /^다음: /m);
+  assert.match(discordCombined, /^담당: ceo \/ standard$/m);
+
+  const finalMessage = renderDiscordFinalMessage({
+    requestBrief: result.requestBrief,
+    missionId: result.missionId,
+    worker: result.routing.worker,
+    tier: result.routing.tier,
+    summaryPath: result.workerResult.summaryPath,
+    closeoutStatus: result.closeout.status,
+  });
+  assert.match(finalMessage, /^\[최종 결과] 로그인 이슈를 조사해줘$/m);
+  assert.match(finalMessage, /^summary: /m);
+  assert.match(finalMessage, /^closeout: passed$/m);
 });
 
 test("parseGodCommand recognizes admin operations and rejects freeform text", () => {

@@ -330,6 +330,7 @@ async function main(): Promise<void> {
       stage,
       role,
       tier,
+      requestBrief: stage === "" ? "수동 보고" : stage,
       requestSummary:
         completed === ""
           ? "수동 보고로 현재 진행 상황을 정리합니다."

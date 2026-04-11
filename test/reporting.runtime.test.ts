@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
 
+import { renderDiscordReportBriefing } from "../src/lib/discord-briefing.js";
 import { createMission, writeMission } from "../src/lib/missions.js";
 import { recordReport } from "../src/lib/reporting.js";
 import { ensureRuntimeLayout } from "../src/lib/runtime.js";
@@ -31,6 +32,7 @@ test("duplicate report keys only emit one user-facing report", async () => {
     stage: "요청 검토",
     role: "ceo",
     tier: "standard",
+    requestBrief: "보고 중복 방지",
     requestSummary:
       "로그인 이슈를 조사하고 결과와 다음 조치를 정리하는 작업입니다.",
     snapshot:
@@ -49,6 +51,7 @@ test("duplicate report keys only emit one user-facing report", async () => {
     stage: "요청 검토",
     role: "ceo",
     tier: "standard",
+    requestBrief: "보고 중복 방지",
     requestSummary:
       "로그인 이슈를 조사하고 결과와 다음 조치를 정리하는 작업입니다.",
     snapshot:
@@ -68,6 +71,7 @@ test("duplicate report keys only emit one user-facing report", async () => {
     path.join(root, "runtime", "state", "reports"),
   );
   assert.equal(reports.length, 1);
+  assert.equal(first.request_brief, "보고 중복 방지");
   assert.equal(
     first.request_summary,
     "로그인 이슈를 조사하고 결과와 다음 조치를 정리하는 작업입니다.",
@@ -84,4 +88,14 @@ test("duplicate report keys only emit one user-facing report", async () => {
     first.content,
     /요청 잘 받았습니다|진행 상황을 이어서 공유드릴게요|작업이 잘 마무리되어/,
   );
+
+  const discordBriefing = renderDiscordReportBriefing(first);
+  assert.match(discordBriefing, /^---$/m);
+  assert.match(discordBriefing, /^\[요청 검토] 보고 중복 방지$/m);
+  assert.doesNotMatch(
+    discordBriefing,
+    /한눈요약:|요청 요지:|현재 단계:|단계 전환 이유:/,
+  );
+  assert.match(discordBriefing, /^다음: /m);
+  assert.match(discordBriefing, /^담당: ceo \/ standard$/m);
 });

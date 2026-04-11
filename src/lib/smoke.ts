@@ -12,6 +12,7 @@ import {
   buildMissionCompletedReport,
   buildMissionCreatedReport,
   buildRetryReviewReport,
+  createRequestBrief,
   createRequestSummary,
 } from "./ceo-reporting.js";
 import { verifyMissionCloseout } from "./closeout.js";
@@ -112,6 +113,7 @@ export async function runSmokeScenario(
     );
   }
   const requestSummary = createRequestSummary(mission.user_request);
+  const requestBrief = createRequestBrief(mission.user_request);
   const routing: RoutingDecision = {
     category: "research",
     worker: "researcher",
@@ -124,6 +126,7 @@ export async function runSmokeScenario(
     reportKey: "mission.created",
     role: "ceo",
     tier: "standard",
+    requestBrief,
     ...buildMissionCreatedReport(requestSummary, routing),
   });
 
@@ -144,6 +147,7 @@ export async function runSmokeScenario(
     reportKey: "job.routed",
     role: "ceo",
     tier: "standard",
+    requestBrief,
     ...buildJobRoutedReport(requestSummary, routing, job.packet_ref),
   });
 
@@ -160,6 +164,7 @@ export async function runSmokeScenario(
     reportKey: "handoff.completed",
     role: "ceo",
     tier: "standard",
+    requestBrief,
     ...buildHandoffCompletedReport(requestSummary, worker.summaryPath),
   });
 
@@ -168,6 +173,7 @@ export async function runSmokeScenario(
     reportKey: "job.retried",
     role: "ceo",
     tier: "standard",
+    requestBrief,
     ...buildRetryReviewReport({
       requestSummary,
       retryRequired: false,
@@ -181,6 +187,7 @@ export async function runSmokeScenario(
     reportKey: "mission.completed",
     role: "ceo",
     tier: "standard",
+    requestBrief,
     ...buildMissionCompletedReport(requestSummary),
   });
 

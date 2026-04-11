@@ -3,8 +3,17 @@ import { test } from "node:test";
 
 import {
   buildRetryReviewReport,
+  createRequestBrief,
   createRequestSummary,
 } from "../src/lib/ceo-reporting.js";
+
+test("createRequestBrief keeps the request header short and readable", () => {
+  const brief = createRequestBrief(
+    "보고 메시지 형식 테스트입니다. 한눈요약과 단계 전환 이유가 자연스럽게 보이도록 바꿔줘",
+  );
+  assert.equal(brief.length <= 28, true);
+  assert.match(brief, /보고 메시지 형식 테스트/);
+});
 
 test("createRequestSummary keeps target and purpose in one reusable sentence", () => {
   const summary = createRequestSummary(

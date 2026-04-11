@@ -43,6 +43,24 @@ export async function readJob(
   return readJson(jobFile(root, jobId), parseJob, null);
 }
 
+export async function listJobsForMission(
+  root: string,
+  missionId: string,
+): Promise<Job[]> {
+  const jobFiles = (await fs.readdir(runtimePath(root, "jobs"))).filter(
+    (file) => file.endsWith(".json"),
+  );
+  const jobs = await Promise.all(
+    jobFiles.map(async (file) =>
+      readJson(path.join(runtimePath(root, "jobs"), file), parseJob, null),
+    ),
+  );
+
+  return jobs
+    .filter((job): job is Job => job?.mission_id === missionId)
+    .sort((left, right) => left.created_at.localeCompare(right.created_at));
+}
+
 export async function writeJob(root: string, job: Job): Promise<Job> {
   await writeJson(jobFile(root, job.job_id), job);
   return job;

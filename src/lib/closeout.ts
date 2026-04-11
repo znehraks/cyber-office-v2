@@ -104,6 +104,7 @@ export async function verifyMissionCloseout(
   assertPriorityCoverage(mission.backlog ?? []);
   await assertRequiredReports(root, mission);
 
+  mission.status = "completed";
   mission.closeout.status = "passed";
   mission.updated_at = new Date().toISOString();
   await writeMission(root, mission);

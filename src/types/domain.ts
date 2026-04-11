@@ -67,6 +67,12 @@ export interface ThreadRef {
   messageId: string;
 }
 
+export interface ThreadMissionBinding {
+  chat_id: string;
+  mission_id: string;
+  updated_at: string;
+}
+
 export interface MissionBacklogItem {
   id: string | null;
   title: string;
@@ -237,6 +243,7 @@ export interface ReportInput {
   stage: string;
   role: string;
   tier: string;
+  requestBrief: string;
   requestSummary: string;
   snapshot: string;
   completed: string;
@@ -253,6 +260,7 @@ export interface ReportRecord {
   stage: string;
   role: string;
   tier: string;
+  request_brief: string;
   request_summary: string;
   snapshot: string;
   completed: string;
@@ -370,6 +378,17 @@ export function parseThreadRef(value: unknown): ThreadRef {
   return {
     chatId: readString(record, "chatId", "thread_ref"),
     messageId: readString(record, "messageId", "thread_ref"),
+  };
+}
+
+export function parseThreadMissionBinding(
+  value: unknown,
+): ThreadMissionBinding {
+  const record = expectRecord(value, "thread_mission_binding");
+  return {
+    chat_id: readString(record, "chat_id", "thread_mission_binding"),
+    mission_id: readString(record, "mission_id", "thread_mission_binding"),
+    updated_at: readString(record, "updated_at", "thread_mission_binding"),
   };
 }
 
@@ -549,6 +568,8 @@ export function parseReportRecord(value: unknown): ReportRecord {
   const completed = readString(record, "completed", "report");
   const findings = readOptionalString(record, "findings", "report") ?? "";
   const next = readString(record, "next", "report");
+  const requestBrief =
+    readOptionalString(record, "request_brief", "report") ?? stage;
   const requestSummary =
     readOptionalString(record, "request_summary", "report") ?? completed;
   const transitionReason =
@@ -565,6 +586,7 @@ export function parseReportRecord(value: unknown): ReportRecord {
     stage,
     role: readString(record, "role", "report"),
     tier: readString(record, "tier", "report"),
+    request_brief: requestBrief,
     request_summary: requestSummary,
     snapshot,
     completed,
