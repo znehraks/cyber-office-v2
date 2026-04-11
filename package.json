@@ -4,23 +4,37 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "lint:shell": "bash -n ./scripts/*.sh",
-    "test": "node --test test/*.runtime.test.js",
-    "doctor": "node ./src/cli.js doctor",
-    "start": "node ./src/cli.js start",
-    "stop": "node ./src/cli.js stop",
-    "ps": "node ./src/cli.js ps",
-    "attach": "node ./src/cli.js attach",
-    "legacy:cleanup": "bash ./scripts/cleanup-legacy-launchd.sh",
-    "status": "node ./src/cli.js status",
-    "reset-runtime": "bash ./scripts/reset-runtime-state.sh",
-    "smoke": "CLAUDE_BIN=node CO_SMOKE_EXTRA_ARGS_JSON='[\"./test/fixtures/fake-claude-success.js\"]' node ./src/cli.js smoke",
-    "ci": "npm run lint:shell && npm run reset-runtime && node ./src/cli.js init && node ./src/cli.js doctor && npm test && npm run reset-runtime && npm run smoke",
-    "bot:ceo": "bash ./scripts/run-discord-ceo.sh",
-    "bot:god": "bash ./scripts/run-discord-god.sh",
-    "supervisor:daemon": "bash ./scripts/run-supervisor-daemon.sh"
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "check:source-layout": "node --enable-source-maps ./dist/src/tools/check-source-layout.js",
+    "test:compiled": "node --enable-source-maps --test dist/test/*.runtime.test.js",
+    "test": "npm run build && npm run test:compiled",
+    "doctor": "node --enable-source-maps ./dist/src/cli.js doctor",
+    "start": "node --enable-source-maps ./dist/src/cli.js start",
+    "stop": "node --enable-source-maps ./dist/src/cli.js stop",
+    "ps": "node --enable-source-maps ./dist/src/cli.js ps",
+    "attach": "node --enable-source-maps ./dist/src/cli.js attach",
+    "legacy:cleanup": "node --enable-source-maps ./dist/src/tools/cleanup-legacy-launchd.js",
+    "status": "node --enable-source-maps ./dist/src/cli.js status",
+    "reset-runtime": "node --enable-source-maps ./dist/src/tools/reset-runtime-state.js",
+    "smoke": "npm run build && CLAUDE_BIN=node CO_SMOKE_EXTRA_ARGS_JSON='[\"./dist/test/fixtures/fake-claude-success.js\"]' node --enable-source-maps ./dist/src/cli.js smoke",
+    "check": "npm run lint && npm run typecheck && npm run test",
+    "ci": "npm run build && npm run lint && npm run typecheck && npm run check:source-layout && npm run reset-runtime && node --enable-source-maps ./dist/src/cli.js init && node --enable-source-maps ./dist/src/cli.js doctor && npm run test:compiled && npm run reset-runtime && CLAUDE_BIN=node CO_SMOKE_EXTRA_ARGS_JSON='[\"./dist/test/fixtures/fake-claude-success.js\"]' node --enable-source-maps ./dist/src/cli.js smoke",
+    "bot:ceo": "CO_DISCORD_ROLE=ceo node --enable-source-maps ./dist/src/discord-bot.js",
+    "bot:god": "CO_DISCORD_ROLE=god node --enable-source-maps ./dist/src/discord-bot.js",
+    "supervisor:daemon": "node --enable-source-maps ./dist/src/cli.js supervisor daemon",
+    "install-bin-links": "node --enable-source-maps ./dist/src/tools/install-bin-links.js"
   },
   "dependencies": {
     "discord.js": "^14.26.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^22.13.14",
+    "@typescript/native-preview": "^7.0.0-dev.20250522.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
   }
 }

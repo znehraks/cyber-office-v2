@@ -1,4 +1,5 @@
 node_modules/
+dist/
 
 runtime/missions/*
 !runtime/missions/.gitkeep

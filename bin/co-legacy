@@ -1,4 +1,10 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env node
+import { spawnSync } from "node:child_process";
 
-exec /Users/designc/Documents/cyber-office/bin/co "$@"
+const legacyEntrypoint = "/Users/designc/Documents/cyber-office/bin/co";
+const result = spawnSync(legacyEntrypoint, process.argv.slice(2), {
+  env: process.env,
+  stdio: "inherit",
+});
+
+process.exit(result.status ?? 1);
