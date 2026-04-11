@@ -29,4 +29,7 @@ test("smoke scenario completes mission and verifies closeout", async () => {
   assert.equal(result.closeout.status, "passed");
   assert.equal(result.report.role, "ceo");
   assert.equal(result.report.tier, "standard");
+  assert.equal(result.report.stage, "요청 검토");
+  assert.match(result.report.content, /^한눈요약: /m);
+  assert.match(result.report.content, /^요청 요지: /m);
 });

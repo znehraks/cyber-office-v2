@@ -82,17 +82,6 @@ async function handleCeoMessage(
 
   const replyChannel = await ensureReplyChannel(message);
   assertSendableChannel(replyChannel);
-  await replyChannel.send(
-    [
-      "요청 확인했습니다. 바로 분류해서 진행 상황을 계속 공유드릴게요.",
-      "",
-      "현재 단계: 요청 접수",
-      "role / tier: ceo / standard",
-      "방금 한 일: 요청을 받음",
-      "발견: 실행 준비",
-      "다음 일: 분류 및 worker 배정",
-    ].join("\n"),
-  );
 
   const result = await executeMissionFlow(root, {
     source: "discord",
@@ -107,7 +96,7 @@ async function handleCeoMessage(
 
   await replyChannel.send(
     [
-      "작업이 마무리되었습니다. 결과 경로와 상태를 아래에 정리해둘게요.",
+      "최종 정리 보고드립니다. 아래 경로와 상태를 확인하시면 됩니다.",
       "",
       `mission: ${result.missionId}`,
       `worker: ${result.routing.worker} / ${result.routing.tier}`,

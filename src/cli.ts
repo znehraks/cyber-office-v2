@@ -330,9 +330,22 @@ async function main(): Promise<void> {
       stage,
       role,
       tier,
+      requestSummary:
+        completed === ""
+          ? "수동 보고로 현재 진행 상황을 정리합니다."
+          : `${completed} 진행 상황을 정리한 수동 보고입니다.`,
+      snapshot:
+        findings === ""
+          ? `${stage} 단계 보고입니다. 다음 조치로 이어집니다.`
+          : `${stage} 단계 보고입니다. ${findings}`,
       completed,
-      findings,
+      transitionReason:
+        findings === ""
+          ? "수동 보고 기준으로 다음 조치를 이어갑니다."
+          : findings,
       next,
+      evidence: null,
+      findings,
     });
     console.log(JSON.stringify(result, null, 2));
     return;

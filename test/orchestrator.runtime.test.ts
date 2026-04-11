@@ -49,7 +49,34 @@ test("executeMissionFlow completes a one-shot ceo mission with reports and close
   assert.equal(result.workerResult.status, "completed");
   assert.equal(result.closeout.status, "passed");
   assert.equal(result.routing.worker, "researcher");
-  assert.equal(result.reports.length >= 4, true);
+  assert.deepEqual(
+    result.reports.map((report) => report.stage),
+    ["요청 검토", "담당 배정", "결과 확보", "마감 점검", "최종 마감"],
+  );
+
+  const combined = result.reports.map((report) => report.content).join("\n\n");
+  for (const label of [
+    "한눈요약",
+    "요청 요지",
+    "현재 단계",
+    "방금 진행한 내용",
+    "단계 전환 이유",
+    "다음 조치",
+    "담당",
+  ]) {
+    assert.match(combined, new RegExp(`^${label}: `, "m"));
+  }
+
+  assert.doesNotMatch(
+    combined,
+    /default standard|category=|clean path|verify 시작/,
+  );
+  assert.match(result.reports[0]?.content ?? "", /배정 단계로 넘어갑니다/);
+  assert.match(result.reports[1]?.content ?? "", /작업 packet/);
+  assert.match(result.reports[2]?.content ?? "", /summary\.md/);
+  assert.match(result.reports[2]?.content ?? "", /closeout 문서/);
+  assert.match(result.reports[3]?.content ?? "", /재시도 필요 여부/);
+  assert.match(result.reports[4]?.content ?? "", /mission 완료를 확정/);
 });
 
 test("parseGodCommand recognizes admin operations and rejects freeform text", () => {

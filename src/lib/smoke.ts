@@ -1,7 +1,19 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import type { PacketManifest, SmokeOptions } from "../types/domain.js";
+import type {
+  PacketManifest,
+  RoutingDecision,
+  SmokeOptions,
+} from "../types/domain.js";
+import {
+  buildHandoffCompletedReport,
+  buildJobRoutedReport,
+  buildMissionCompletedReport,
+  buildMissionCreatedReport,
+  buildRetryReviewReport,
+  createRequestSummary,
+} from "./ceo-reporting.js";
 import { verifyMissionCloseout } from "./closeout.js";
 import { ingestIngressEvent } from "./ingress.js";
 import { createJob, writePacket } from "./jobs.js";
@@ -99,16 +111,20 @@ export async function runSmokeScenario(
       `Mission missing after smoke ingress: ${ingress.missionId}`,
     );
   }
+  const requestSummary = createRequestSummary(mission.user_request);
+  const routing: RoutingDecision = {
+    category: "research",
+    worker: "researcher",
+    tier: "standard",
+    rationale: "smoke route",
+  };
 
   const report = await recordReport(root, {
     missionId: mission.mission_id,
     reportKey: "mission.created",
-    stage: "요청 접수",
     role: "ceo",
     tier: "standard",
-    completed: "smoke mission 생성",
-    findings: "runtime path 정상",
-    next: "job 생성",
+    ...buildMissionCreatedReport(requestSummary, routing),
   });
 
   const job = await createJob(root, {
@@ -126,12 +142,9 @@ export async function runSmokeScenario(
   await recordReport(root, {
     missionId: mission.mission_id,
     reportKey: "job.routed",
-    stage: "worker 라우팅",
     role: "ceo",
     tier: "standard",
-    completed: `${job.worker} / ${job.tier} 배정`,
-    findings: "packet 생성 예정",
-    next: "worker 실행",
+    ...buildJobRoutedReport(requestSummary, routing, job.packet_ref),
   });
 
   await writePacket(root, job.job_id, buildPacket(root, job.job_id, inputRef));
@@ -145,23 +158,20 @@ export async function runSmokeScenario(
   await recordReport(root, {
     missionId: mission.mission_id,
     reportKey: "handoff.completed",
-    stage: "worker 완료",
     role: "ceo",
     tier: "standard",
-    completed: "summary 수집 완료",
-    findings: worker.summaryPath,
-    next: "closeout 검증",
+    ...buildHandoffCompletedReport(requestSummary, worker.summaryPath),
   });
 
   await recordReport(root, {
     missionId: mission.mission_id,
     reportKey: "job.retried",
-    stage: "retry 상태",
     role: "ceo",
     tier: "standard",
-    completed: "retry 없음",
-    findings: "clean path",
-    next: "closeout 문서 생성",
+    ...buildRetryReviewReport({
+      requestSummary,
+      retryRequired: false,
+    }),
   });
 
   await writeCloseoutArtifacts(root, mission.mission_id);
@@ -169,12 +179,9 @@ export async function runSmokeScenario(
   await recordReport(root, {
     missionId: mission.mission_id,
     reportKey: "mission.completed",
-    stage: "최종 완료",
     role: "ceo",
     tier: "standard",
-    completed: "closeout 준비 완료",
-    findings: "검증 대기",
-    next: "closeout verify",
+    ...buildMissionCompletedReport(requestSummary),
   });
 
   const closeout = await verifyMissionCloseout(root, mission.mission_id);

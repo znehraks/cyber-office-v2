@@ -9,6 +9,14 @@ import type {
   RoutingCategory,
   RoutingDecision,
 } from "../types/domain.js";
+import {
+  buildHandoffCompletedReport,
+  buildJobRoutedReport,
+  buildMissionCompletedReport,
+  buildMissionCreatedReport,
+  buildRetryReviewReport,
+  createRequestSummary,
+} from "./ceo-reporting.js";
 import { verifyMissionCloseout } from "./closeout.js";
 import { ingestIngressEvent } from "./ingress.js";
 import { createJob, writePacket } from "./jobs.js";
@@ -111,10 +119,6 @@ export function classifyRequest(request: string): RoutingDecision {
     tier: role.tier,
     rationale: `default ${category}`,
   };
-}
-
-function summarizeNextStep(routing: RoutingDecision): string {
-  return `${routing.worker} / ${routing.tier} 실행`;
 }
 
 async function ensureInputRef(root: string): Promise<string> {
@@ -235,24 +239,22 @@ export async function executeMissionFlow(
   if (!mission) {
     throw new Error(`Mission missing after ingress: ${ingress.missionId}`);
   }
+  const requestSummary = createRequestSummary(mission.user_request);
   const reports: ReportRecord[] = [];
 
   const pushReport = async (
     reportKey: string,
-    stage: string,
-    completed: string,
-    findings: string,
-    next: string,
+    reportInput: Omit<
+      Parameters<typeof recordReport>[1],
+      "missionId" | "reportKey" | "role" | "tier"
+    >,
   ): Promise<ReportRecord> => {
     const report = await recordReport(root, {
       missionId: mission.mission_id,
       reportKey,
-      stage,
       role: "ceo",
       tier: "standard",
-      completed,
-      findings,
-      next,
+      ...reportInput,
     });
     reports.push(report);
     if (options.onReport) {
@@ -263,10 +265,7 @@ export async function executeMissionFlow(
 
   await pushReport(
     "mission.created",
-    "요청 접수",
-    `mission 생성: ${mission.mission_id}`,
-    routing.rationale,
-    summarizeNextStep(routing),
+    buildMissionCreatedReport(requestSummary, routing),
   );
 
   const inputRef = await ensureInputRef(root);
@@ -282,15 +281,11 @@ export async function executeMissionFlow(
     now: options.now,
   });
 
+  await writePacket(root, job.job_id, buildPacket(root, job.job_id, inputRef));
   await pushReport(
     "job.routed",
-    "worker 라우팅",
-    `${job.worker} / ${job.tier} 배정`,
-    `category=${job.category}`,
-    "packet 생성",
+    buildJobRoutedReport(requestSummary, routing, job.packet_ref),
   );
-
-  await writePacket(root, job.job_id, buildPacket(root, job.job_id, inputRef));
   const workerResult = await runWorker(root, job.worker, job.job_id, {
     claudeBin: options.claudeBin,
     extraArgs: options.extraArgs,
@@ -299,17 +294,14 @@ export async function executeMissionFlow(
 
   await pushReport(
     "handoff.completed",
-    "worker 완료",
-    "summary 수집 완료",
-    workerResult.summaryPath,
-    "closeout 작성",
+    buildHandoffCompletedReport(requestSummary, workerResult.summaryPath),
   );
   await pushReport(
     "job.retried",
-    "retry 상태",
-    "retry 없음",
-    "clean path",
-    "closeout verify",
+    buildRetryReviewReport({
+      requestSummary,
+      retryRequired: false,
+    }),
   );
 
   await writeMissionCloseout(
@@ -321,10 +313,7 @@ export async function executeMissionFlow(
   );
   await pushReport(
     "mission.completed",
-    "최종 완료",
-    "closeout 문서 생성",
-    "verify 시작",
-    "mission completed",
+    buildMissionCompletedReport(requestSummary),
   );
 
   const closeout = await verifyMissionCloseout(root, mission.mission_id);

@@ -184,9 +184,14 @@ test("mission closeout is blocked by unresolved P1 backlog and passes once clear
       stage: reportKey,
       role: "ceo",
       tier: "standard",
+      requestSummary:
+        "closeout 필수 보고 충족 여부를 정리하는 테스트 작업입니다.",
+      snapshot: `${reportKey} 보고가 기록됐고 closeout 검증 조건을 맞추는 중입니다.`,
       completed: `${reportKey} emitted`,
-      findings: "n/a",
+      transitionReason:
+        "필수 보고 항목을 채워 closeout 검증을 통과할 수 있게 합니다.",
       next: "n/a",
+      evidence: null,
     });
   }
 

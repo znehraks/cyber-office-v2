@@ -237,9 +237,13 @@ export interface ReportInput {
   stage: string;
   role: string;
   tier: string;
+  requestSummary: string;
+  snapshot: string;
   completed: string;
-  findings: string;
+  transitionReason: string;
   next: string;
+  evidence?: string | null | undefined;
+  findings?: string | undefined;
 }
 
 export interface ReportRecord {
@@ -249,9 +253,13 @@ export interface ReportRecord {
   stage: string;
   role: string;
   tier: string;
+  request_summary: string;
+  snapshot: string;
   completed: string;
+  transition_reason: string;
   findings: string;
   next: string;
+  evidence: string | null;
   content: string;
   duplicate: boolean;
 }
@@ -319,9 +327,9 @@ export interface McpConfig {
 }
 
 export interface RoutingDecision {
-  category: string;
+  category: RoutingCategory;
   worker: string;
-  tier: string;
+  tier: Tier;
   rationale: string;
 }
 
@@ -537,16 +545,33 @@ export function parseIngressClaim(value: unknown): IngressClaim {
 
 export function parseReportRecord(value: unknown): ReportRecord {
   const record = expectRecord(value, "report");
+  const stage = readString(record, "stage", "report");
+  const completed = readString(record, "completed", "report");
+  const findings = readOptionalString(record, "findings", "report") ?? "";
+  const next = readString(record, "next", "report");
+  const requestSummary =
+    readOptionalString(record, "request_summary", "report") ?? completed;
+  const transitionReason =
+    readOptionalString(record, "transition_reason", "report") ??
+    (findings === "" ? next : findings);
+  const evidence = readOptionalString(record, "evidence", "report");
+  const snapshot =
+    readOptionalString(record, "snapshot", "report") ??
+    `${stage} 단계 진행 상황입니다. ${transitionReason}`;
   return {
     reportId: readString(record, "reportId", "report"),
     mission_id: readString(record, "mission_id", "report"),
     report_key: readString(record, "report_key", "report"),
-    stage: readString(record, "stage", "report"),
+    stage,
     role: readString(record, "role", "report"),
     tier: readString(record, "tier", "report"),
-    completed: readString(record, "completed", "report"),
-    findings: readString(record, "findings", "report"),
-    next: readString(record, "next", "report"),
+    request_summary: requestSummary,
+    snapshot,
+    completed,
+    transition_reason: transitionReason,
+    findings,
+    next,
+    evidence,
     content: readString(record, "content", "report"),
     duplicate: readBoolean(record, "duplicate", "report"),
   };
