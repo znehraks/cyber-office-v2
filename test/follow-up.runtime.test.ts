@@ -146,6 +146,51 @@ test("follow-up status uses summary artifact to explain actual progress", async 
   assert.doesNotMatch(reply.content, /결과 확보 전 단계|packet/);
 });
 
+test("follow-up status falls back to canonical deliverable when summary is not ready", async () => {
+  const root = await makeRoot();
+  const epic = await createEpicRecord(root, {
+    projectSlug: "todo-app-e2e",
+    title: "todo app fallback",
+    discordThreadId: "thread-44",
+  });
+  const mission = createMission({
+    missionId: "mission-follow-up-deliverable",
+    ingressKey: "v1:discord:message_create:follow-up-deliverable",
+    threadRef: { chatId: "thread-44", messageId: "msg-44" },
+    epicRef: epic,
+    userRequest: "간단한 투두앱을 구현해줘",
+    category: "standard",
+    priorityFloor: "P1",
+  });
+  await writeMission(root, mission);
+  await bindEpicMission(root, epic.epic_id, mission.mission_id);
+
+  const job = await createJob(root, {
+    missionId: mission.mission_id,
+    worker: "app-dev",
+    category: "standard",
+    priority: "P1",
+    task: "투두앱 구현",
+    deliverable: "summary.md 작성",
+  });
+  await transitionJobStatus(root, job.job_id, ["queued"], "running");
+  const artifactDir = path.join(root, "runtime", "artifacts", job.job_id);
+  await fs.mkdir(artifactDir, { recursive: true });
+  await fs.writeFile(
+    path.join(artifactDir, "IMPLEMENTATION.md"),
+    "# Todo App\n\n## 구현된 기능\nReact 기반 투두앱에 할 일 추가, 완료 토글, 삭제 기능을 구현했습니다.\n",
+    "utf8",
+  );
+
+  const reply = await buildFollowUpReply(root, "thread-44");
+  assert.ok(reply);
+  assert.match(
+    reply.content,
+    /React 기반 투두앱에 할 일 추가, 완료 토글, 삭제 기능을 구현했습니다\./,
+  );
+  assert.doesNotMatch(reply.content, /결과 확보 전 단계|packet/);
+});
+
 test("active mission thread only accepts status and after-this commands", async () => {
   const root = await makeRoot();
   const epic = await createEpicRecord(root, {

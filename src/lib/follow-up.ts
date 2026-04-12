@@ -4,11 +4,15 @@ import * as path from "node:path";
 import type { Job, ReportRecord } from "../types/domain.js";
 import { renderDiscordFollowUpBriefing } from "./discord-briefing.js";
 import { clearEpicMission, findEpicByThreadId } from "./epics.js";
-import { listJobsForMission } from "./jobs.js";
+import { listJobsForMission, readPacket } from "./jobs.js";
 import { readMission } from "./missions.js";
 import { listMissionReports } from "./reporting.js";
 import { queueAfterThisFollowUp } from "./requests.js";
-import { readResultFile, resultFilePath } from "./results.js";
+import {
+  canonicalDeliverableFileName,
+  readResultFile,
+  resultFilePath,
+} from "./results.js";
 import { exists, runtimePath } from "./runtime.js";
 
 const REPORT_ORDER: Record<string, number> = {
@@ -47,10 +51,20 @@ function withPeriod(value: string): string {
   return /[.!?]$/u.test(normalized) ? normalized : `${normalized}.`;
 }
 
-function extractSummaryNarrative(summary: string): string | null {
-  const sectionMatch =
-    /##\s*실제 만든 것\s+([\s\S]*?)(?:\n##\s+|\n---|$)/u.exec(summary);
-  const section = sectionMatch?.[1] ?? summary;
+function extractMarkdownSection(
+  markdown: string,
+  heading: string,
+): string | null {
+  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const sectionMatch = new RegExp(
+    `##\\s*${escapedHeading}\\s+([\\s\\S]*?)(?:\\n##\\s+|\\n---|$)`,
+    "u",
+  ).exec(markdown);
+  return sectionMatch?.[1] ?? null;
+}
+
+function extractFirstNarrativeLine(markdown: string): string | null {
+  const section = markdown;
   for (const rawLine of section.split("\n")) {
     const line = normalizeWhitespace(rawLine);
     if (
@@ -72,6 +86,12 @@ function extractSummaryNarrative(summary: string): string | null {
   return null;
 }
 
+function extractSummaryNarrative(summary: string): string | null {
+  return extractFirstNarrativeLine(
+    extractMarkdownSection(summary, "실제 만든 것") ?? summary,
+  );
+}
+
 async function readProgressDetail(
   root: string,
   latestJob: Job,
@@ -87,6 +107,33 @@ async function readProgressDetail(
   if (await exists(summaryPath)) {
     const summary = await fs.readFile(summaryPath, "utf8");
     return extractSummaryNarrative(summary);
+  }
+
+  const packet = await readPacket(root, latestJob.job_id);
+  const packetCanonicalName =
+    packet?.canonical_deliverable_name ??
+    canonicalDeliverableFileName(packet?.outcome_kind ?? "research_brief");
+  for (const canonicalName of [
+    packetCanonicalName,
+    "IMPLEMENTATION.md",
+    "DESIGN.md",
+    "PLAN.md",
+    "RESEARCH.md",
+  ]) {
+    const canonicalPath = path.join(artifactDir, canonicalName);
+    if (!(await exists(canonicalPath))) {
+      continue;
+    }
+    const canonical = await fs.readFile(canonicalPath, "utf8");
+    const narrative = extractFirstNarrativeLine(
+      extractMarkdownSection(canonical, "구현된 기능") ??
+        extractMarkdownSection(canonical, "실제로 만든 것") ??
+        extractMarkdownSection(canonical, "핵심 결과") ??
+        canonical,
+    );
+    if (narrative) {
+      return narrative;
+    }
   }
 
   return null;
