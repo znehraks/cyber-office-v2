@@ -7,6 +7,8 @@ import { appendEvent } from "./events.js";
 import { hashValue, openExclusive, readJson, runtimePath } from "./runtime.js";
 
 function renderReport(input: ReportInput): string {
+  const displayRole = input.assigneeRole ?? input.role;
+  const displayTier = input.assigneeTier ?? input.tier;
   const lines = [
     `한눈요약: ${input.snapshot}`,
     `요청 요지: ${input.requestSummary}`,
@@ -14,7 +16,7 @@ function renderReport(input: ReportInput): string {
     `방금 진행한 내용: ${input.completed}`,
     `단계 전환 이유: ${input.transitionReason}`,
     `다음 조치: ${input.next}`,
-    `담당: ${input.role} / ${input.tier}`,
+    `담당: ${displayRole} / ${displayTier}`,
   ];
   if (input.evidence) {
     lines.push(`확인 근거: ${input.evidence}`);
@@ -40,6 +42,8 @@ export async function recordReport(
       stage: input.stage,
       role: input.role,
       tier: input.tier,
+      assignee_role: input.assigneeRole ?? null,
+      assignee_tier: input.assigneeTier ?? null,
       request_brief: input.requestBrief,
       request_summary: input.requestSummary,
       snapshot: input.snapshot,

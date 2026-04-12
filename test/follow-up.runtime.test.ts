@@ -98,7 +98,7 @@ test("follow-up in an active thread returns a status briefing without creating a
     reply.content,
     /^다음: researcher \/ standard가 조사 결과를 정리합니다\.$/m,
   );
-  assert.match(reply.content, /^담당: ceo \/ standard$/m);
+  assert.match(reply.content, /^담당: researcher \/ standard$/m);
   assert.match(
     reply.content,
     /^상세 문서: cyber-office-runtime\/_cyber-office\/epics\/runtime\/missions\/mission-follow-up\.md$/m,

@@ -297,6 +297,10 @@ export function createPublicRequestLead(
   }
 }
 
+export function createPublicWorkLabel(request: string): string {
+  return `${deriveRequestSubject(request)} ${deriveActionLabel(request)}`.trim();
+}
+
 export function buildMissionCreatedReport(
   requestSummary: string,
   routing: RoutingDecision,

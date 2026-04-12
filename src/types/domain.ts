@@ -410,6 +410,8 @@ export interface ReportInput {
   stage: string;
   role: string;
   tier: string;
+  assigneeRole?: string | undefined;
+  assigneeTier?: string | undefined;
   requestBrief: string;
   requestSummary: string;
   snapshot: string;
@@ -427,6 +429,8 @@ export interface ReportRecord {
   stage: string;
   role: string;
   tier: string;
+  assignee_role: string | null;
+  assignee_tier: string | null;
   request_brief: string;
   request_summary: string;
   snapshot: string;
@@ -1016,6 +1020,8 @@ export function parseReportRecord(value: unknown): ReportRecord {
     stage,
     role: readString(record, "role", "report"),
     tier: readString(record, "tier", "report"),
+    assignee_role: readOptionalString(record, "assignee_role", "report"),
+    assignee_tier: readOptionalString(record, "assignee_tier", "report"),
     request_brief: requestBrief,
     request_summary: requestSummary,
     snapshot,

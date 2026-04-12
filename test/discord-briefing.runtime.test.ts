@@ -15,6 +15,8 @@ function makeReport(overrides: Partial<ReportRecord> = {}): ReportRecord {
     stage: "담당 배정",
     role: "ceo",
     tier: "standard",
+    assignee_role: "app-dev",
+    assignee_tier: "standard",
     request_brief: "간단한 투두앱",
     request_summary:
       "간단한 투두앱 실제 구현 건을 처리하고 결과를 정리하는 작업입니다.",

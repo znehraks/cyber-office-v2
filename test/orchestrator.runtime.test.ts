@@ -147,7 +147,7 @@ test("executeMissionFlow completes a one-shot ceo mission with reports and close
     /한눈요약:|요청 요지:|현재 단계:|방금 진행한 내용:|단계 전환 이유:|summary\.md/,
   );
   assert.match(publicReports.join("\n\n"), /^다음: /m);
-  assert.match(publicReports.join("\n\n"), /^담당: ceo \/ standard$/m);
+  assert.match(publicReports.join("\n\n"), /^담당: researcher \/ standard$/m);
   assert.match(
     publicReports[1] ?? "",
     /^상세 문서: sns-app\/_cyber-office\/epics\/로그인-플로우\/missions\/.*\.md$/m,

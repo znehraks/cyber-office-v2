@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 import type { Job, ReportRecord } from "../types/domain.js";
+import { createPublicWorkLabel } from "./ceo-reporting.js";
 import { renderDiscordFollowUpBriefing } from "./discord-briefing.js";
 import { clearEpicMission, findEpicByThreadId } from "./epics.js";
 import { listJobsForMission, readPacket } from "./jobs.js";
@@ -142,6 +143,7 @@ async function readProgressDetail(
 
 async function describeFollowUpStatus(
   root: string,
+  requestText: string,
   latestReport: ReportRecord | null,
   latestJob: Job | null,
 ): Promise<{ statusLine: string; detailLine: string; nextLine: string }> {
@@ -178,11 +180,15 @@ async function describeFollowUpStatus(
   if (latestJob?.status === "running") {
     const progressDetail = await readProgressDetail(root, latestJob);
     const taskLabel = normalizeWhitespace(latestJob.input.task);
+    const displayTask =
+      taskLabel === "" || taskLabel.length > 48
+        ? createPublicWorkLabel(requestText)
+        : taskLabel;
     return {
       statusLine:
-        taskLabel === ""
+        displayTask === ""
           ? `현재 ${latestJob.worker} / ${latestJob.tier}가 작업을 이어가고 있습니다.`
-          : `현재 ${latestJob.worker} / ${latestJob.tier}가 ${taskLabel} 작업을 이어가고 있습니다.`,
+          : `현재 ${latestJob.worker} / ${latestJob.tier}가 ${displayTask} 작업을 이어가고 있습니다.`,
       detailLine:
         progressDetail ??
         "현재 요청하신 범위를 실제로 구현하거나 정리하는 중이며, 눈에 보이는 결과가 정리되는 대로 바로 다시 보고드리겠습니다.",
@@ -233,7 +239,12 @@ export async function buildFollowUpReply(
   ]);
   const latestReport = pickLatestReport(reports);
   const latestJob = pickLatestJob(jobs);
-  const status = await describeFollowUpStatus(root, latestReport, latestJob);
+  const status = await describeFollowUpStatus(
+    root,
+    mission.user_request,
+    latestReport,
+    latestJob,
+  );
   return {
     missionId: mission.mission_id,
     content: renderDiscordFollowUpBriefing({
@@ -241,8 +252,8 @@ export async function buildFollowUpReply(
       statusLine: status.statusLine,
       detailLine: status.detailLine,
       nextLine: status.nextLine,
-      role: "ceo",
-      tier: "standard",
+      role: latestJob?.worker ?? "ceo",
+      tier: latestJob?.tier ?? "standard",
       notePath: missionNotePath(
         mission.project_ref,
         mission.epic_ref.slug,

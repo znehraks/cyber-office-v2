@@ -116,7 +116,7 @@ export function renderDiscordReportBriefing(
     `[${publicStage}] ${createPublicBriefingTitle(requestText, phase)}`,
     ...bodyLines,
     `다음: ${report.next}`,
-    `담당: ${report.role} / ${report.tier}`,
+    `담당: ${report.assignee_role ?? report.role} / ${report.assignee_tier ?? report.tier}`,
     ...(notePath ? [`상세 문서: ${notePath}`] : []),
   ]);
 }

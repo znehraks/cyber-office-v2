@@ -446,6 +446,8 @@ export async function executeMissionFlow(
       reportKey,
       role: "ceo",
       tier: "standard",
+      assigneeRole: routing.worker,
+      assigneeTier: routing.tier,
       requestBrief,
       ...reportInput,
     });
