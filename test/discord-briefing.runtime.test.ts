@@ -43,6 +43,7 @@ function makeCodeChangeResult(): ResultFile {
       "완료 토글",
       "삭제",
       "전체/진행 중/완료 필터",
+      "드래그 정렬",
     ],
     remaining_work: ["테스트 보강과 후속 기능 우선순위 정리"],
     risks: [],
@@ -105,6 +106,9 @@ test("public progress and final messages prioritize actual result and hide summa
   assert.match(progress, /할 일 추가, 완료 토글, 삭제/);
   assert.match(progress, /src\/App\.tsx/);
   assert.match(progress, /npm test/);
+  assert.match(progress, /완료한 항목은 .*반영했습니다\./);
+  assert.match(progress, /검증 항목은 .*점검했습니다\./);
+  assert.doesNotMatch(progress, /드래그 정렬/);
   assert.doesNotMatch(progress, /까지까지|까지이고|등을이고|등을까지/);
   assert.match(
     progress,
@@ -143,6 +147,9 @@ test("public progress and final messages prioritize actual result and hide summa
   assert.match(finalMessage, /^\[최종 결과] 간단한 투두앱 최종 결과$/m);
   assert.match(finalMessage, /src\/App\.tsx/);
   assert.match(finalMessage, /npm run lint/);
+  assert.match(finalMessage, /완료한 항목은 .*반영했습니다\./);
+  assert.match(finalMessage, /검증 항목은 .*점검했습니다\./);
+  assert.doesNotMatch(finalMessage, /드래그 정렬/);
   assert.doesNotMatch(finalMessage, /까지까지|까지이고|등을이고|등을까지/);
   assert.match(
     finalMessage,

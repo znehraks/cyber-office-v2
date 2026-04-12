@@ -3,6 +3,7 @@ import * as process from "node:process";
 import type { ReportRecord, ResultFile } from "../types/domain.js";
 import {
   createPublicBriefingTitle,
+  createPublicOutcomeLines,
   createPublicOutcomeNarrative,
   createPublicRequestLead,
 } from "./ceo-reporting.js";
@@ -75,7 +76,7 @@ function buildProgressLines(
   if (options.resultFile) {
     return [
       report.snapshot,
-      createPublicOutcomeNarrative(options.resultFile),
+      ...createPublicOutcomeLines(options.resultFile),
     ].filter((line) => line.trim() !== "");
   }
   return [report.snapshot, report.completed].filter(
@@ -140,7 +141,7 @@ export function renderDiscordFinalMessage(input: {
     `[최종 결과] ${createPublicBriefingTitle(input.requestText, "final")}`,
     createPublicRequestLead(input.requestText, "final"),
     `결과: ${input.resultFile.result_summary}`,
-    createPublicOutcomeNarrative(input.resultFile),
+    ...createPublicOutcomeLines(input.resultFile),
     `다음: ${input.nextStep}`,
     `담당: ${input.worker} / ${input.tier}`,
     `mission: ${input.missionId}`,

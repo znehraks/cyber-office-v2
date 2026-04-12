@@ -63,7 +63,8 @@ test("handoff completed report reflects actual deliverables instead of summary p
   assert.equal(report.stage, "결과 확보");
   assert.match(report.snapshot, /투두앱 기본 기능 1차 구현/);
   assert.match(report.completed, /할 일 추가/);
-  assert.match(report.completed, /localStorage 저장/);
+  assert.doesNotMatch(report.completed, /localStorage 저장/);
+  assert.match(report.completed, /검증 항목은 npm test까지 점검했습니다/);
   assert.doesNotMatch(report.snapshot, /summary\.md/);
   assert.doesNotMatch(report.completed, /summary\.md/);
   assert.match(report.next, /테스트 보강/);

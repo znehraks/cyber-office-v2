@@ -150,7 +150,7 @@ function summarizeItems(
 }
 
 function createCompletedItemsSentence(result: ResultFile): string {
-  const completed = summarizeItems(result.completed_items, 5);
+  const completed = summarizeItems(result.completed_items, 3);
   if (completed.text === "") {
     return "이번 단계의 핵심 결과를 정리했습니다.";
   }
@@ -219,6 +219,15 @@ export function createPublicOutcomeNarrative(result: ResultFile): string {
   const completed = createCompletedItemsSentence(result);
   const outcome = createPublicOutcomeDetail(result);
   return normalizeWhitespace([completed, outcome].filter(Boolean).join(" "));
+}
+
+export function createPublicOutcomeLines(result: ResultFile): string[] {
+  return [
+    createCompletedItemsSentence(result),
+    createPublicOutcomeDetail(result),
+  ]
+    .map((line) => normalizeWhitespace(line))
+    .filter((line) => line !== "");
 }
 
 export function createRequestBrief(request: string): string {
