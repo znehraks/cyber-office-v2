@@ -115,7 +115,7 @@ export function renderDiscordReportBriefing(
     ...bodyLines,
     `다음: ${report.next}`,
     `담당: ${report.role} / ${report.tier}`,
-    ...(notePath ? [`문서: ${notePath}`] : []),
+    ...(notePath ? [`상세 문서: ${notePath}`] : []),
   ]);
 }
 
@@ -147,7 +147,7 @@ export function renderDiscordFinalMessage(input: {
     `다음: ${input.nextStep}`,
     `담당: ${input.worker} / ${input.tier}`,
     `mission: ${input.missionId}`,
-    ...(publicNotePath ? [`문서: ${publicNotePath}`] : []),
+    ...(publicNotePath ? [`상세 문서: ${publicNotePath}`] : []),
     `closeout: ${input.closeoutStatus}`,
   ]);
 }

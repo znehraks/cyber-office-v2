@@ -112,7 +112,7 @@ test("public progress and final messages prioritize actual result and hide summa
   assert.doesNotMatch(progress, /까지까지|까지이고|등을이고|등을까지/);
   assert.match(
     progress,
-    /^문서: todo-app-e2e\/_cyber-office\/epics\/todo-app\/missions\/mission-1\.md$/m,
+    /^상세 문서: todo-app-e2e\/_cyber-office\/epics\/todo-app\/missions\/mission-1\.md$/m,
   );
   assert.doesNotMatch(progress, /summary\.md|\/tmp\/summary\.md/);
   assert.doesNotMatch(progress, /\/obsidian\//);
@@ -157,7 +157,7 @@ test("public progress and final messages prioritize actual result and hide summa
   assert.doesNotMatch(finalMessage, /까지까지|까지이고|등을이고|등을까지/);
   assert.match(
     finalMessage,
-    /^문서: todo-app-e2e\/_cyber-office\/epics\/todo-app\/missions\/mission-1\.md$/m,
+    /^상세 문서: todo-app-e2e\/_cyber-office\/epics\/todo-app\/missions\/mission-1\.md$/m,
   );
   assert.match(finalMessage, /^담당: app-dev \/ standard$/m);
   assert.doesNotMatch(finalMessage, /^summary: /m);
@@ -205,7 +205,7 @@ test("public research progress briefing exposes actual findings without looking 
   );
   assert.match(
     progress,
-    /^문서: todo-app-e2e\/_cyber-office\/epics\/login-issue\/missions\/mission-2\.md$/m,
+    /^상세 문서: todo-app-e2e\/_cyber-office\/epics\/login-issue\/missions\/mission-2\.md$/m,
   );
   assert.doesNotMatch(
     progress,

@@ -150,7 +150,7 @@ test("executeMissionFlow completes a one-shot ceo mission with reports and close
   assert.match(publicReports.join("\n\n"), /^담당: ceo \/ standard$/m);
   assert.match(
     publicReports[1] ?? "",
-    /^문서: sns-app\/_cyber-office\/epics\/로그인-플로우\/missions\/.*\.md$/m,
+    /^상세 문서: sns-app\/_cyber-office\/epics\/로그인-플로우\/missions\/.*\.md$/m,
   );
 
   const finalMessage = renderDiscordFinalMessage({
@@ -170,7 +170,7 @@ test("executeMissionFlow completes a one-shot ceo mission with reports and close
   assert.match(finalMessage, /^closeout: passed$/m);
   assert.match(
     finalMessage,
-    /^문서: sns-app\/_cyber-office\/epics\/로그인-플로우\/missions\/.*\.md$/m,
+    /^상세 문서: sns-app\/_cyber-office\/epics\/로그인-플로우\/missions\/.*\.md$/m,
   );
 
   const mission = await readJson(
