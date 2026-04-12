@@ -1,14 +1,68 @@
 import type { ReportRecord } from "../types/domain.js";
+import {
+  createPublicBriefingTitle,
+  createPublicRequestLead,
+} from "./ceo-reporting.js";
 
 function joinLines(lines: string[]): string {
   return lines.filter((line) => line.trim() !== "").join("\n");
 }
 
-export function renderDiscordReportBriefing(report: ReportRecord): string {
+interface DiscordBriefingOptions {
+  requestText?: string | undefined;
+}
+
+type PublicStage = "접수" | "진행" | "보완 진행";
+
+function resolveRequestText(
+  report: ReportRecord,
+  options: DiscordBriefingOptions,
+): string {
+  return options.requestText ?? report.request_brief;
+}
+
+function resolvePublicStage(report: ReportRecord): PublicStage | null {
+  if (report.report_key === "job.routed") {
+    return "접수";
+  }
+  if (report.report_key === "handoff.completed") {
+    return "진행";
+  }
+  if (
+    report.report_key === "job.retried" &&
+    report.evidence !== null &&
+    report.evidence !== "재시도 없음"
+  ) {
+    return "보완 진행";
+  }
+  return null;
+}
+
+function toPhaseLabel(stage: PublicStage): "intake" | "progress" | "retry" {
+  switch (stage) {
+    case "접수":
+      return "intake";
+    case "진행":
+      return "progress";
+    case "보완 진행":
+      return "retry";
+  }
+}
+
+export function renderDiscordReportBriefing(
+  report: ReportRecord,
+  options: DiscordBriefingOptions = {},
+): string | null {
+  const publicStage = resolvePublicStage(report);
+  if (publicStage === null) {
+    return null;
+  }
+  const requestText = resolveRequestText(report, options);
+  const phase = toPhaseLabel(publicStage);
   return joinLines([
     "---",
-    `[${report.stage}] ${report.request_brief}`,
-    report.snapshot,
+    `[${publicStage}] ${createPublicBriefingTitle(requestText, phase)}`,
+    createPublicRequestLead(requestText, phase),
     report.completed,
     `다음: ${report.next}`,
     `담당: ${report.role} / ${report.tier}`,
@@ -16,27 +70,31 @@ export function renderDiscordReportBriefing(report: ReportRecord): string {
 }
 
 export function renderDiscordFinalMessage(input: {
-  requestBrief: string;
+  requestText: string;
   missionId: string;
   worker: string;
   tier: string;
-  summaryPath: string;
+  resultSummary: string;
+  nextStep: string;
+  notePath: string;
+  summaryPath?: string | undefined;
   closeoutStatus: string;
 }): string {
   return joinLines([
     "---",
-    `[최종 결과] ${input.requestBrief}`,
-    "상태: 완료",
-    `mission: ${input.missionId}`,
+    `[최종 결과] ${createPublicBriefingTitle(input.requestText, "final")}`,
+    createPublicRequestLead(input.requestText, "final"),
+    `결과: ${input.resultSummary}`,
+    `다음: ${input.nextStep}`,
     `worker: ${input.worker} / ${input.tier}`,
-    `summary: ${input.summaryPath}`,
+    `mission: ${input.missionId}`,
+    `note: ${input.notePath}`,
     `closeout: ${input.closeoutStatus}`,
   ]);
 }
 
 export function renderDiscordFollowUpBriefing(input: {
-  requestBrief: string;
-  stage: string;
+  requestText: string;
   statusLine: string;
   detailLine: string;
   nextLine: string;
@@ -45,7 +103,8 @@ export function renderDiscordFollowUpBriefing(input: {
 }): string {
   return joinLines([
     "---",
-    `[${input.stage}] ${input.requestBrief}`,
+    `[진행 상태] ${createPublicBriefingTitle(input.requestText, "status")}`,
+    createPublicRequestLead(input.requestText, "status"),
     input.statusLine,
     input.detailLine,
     `다음: ${input.nextLine}`,

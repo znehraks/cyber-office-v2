@@ -1,3 +1,4 @@
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 import type { Mission, MissionInput } from "../types/domain.js";
@@ -12,6 +13,16 @@ import {
   writeJson,
 } from "./runtime.js";
 
+function defaultProjectRef(): Mission["project_ref"] {
+  return {
+    project_slug: "cyber-office-runtime",
+    display_name: "cyber-office-runtime",
+    discord_channel_id: "",
+    obsidian_rel_dir: "cyber-office-runtime",
+    obsidian_project_dir: "",
+  };
+}
+
 export function createMission(input: MissionInput): Mission {
   const createdAt = nowIso(input.now);
   const missionId =
@@ -22,11 +33,27 @@ export function createMission(input: MissionInput): Mission {
       createdAt,
     );
 
+  const projectRef = input.projectRef ?? defaultProjectRef();
+  const epicRef = input.epicRef ?? {
+    epic_id: createStampedId("epic", missionId, createdAt),
+    project_slug: projectRef.project_slug,
+    title: "runtime",
+    slug: "runtime",
+    discord_thread_id: input.threadRef?.chatId ?? "runtime-thread",
+    status: "open" as const,
+    active_mission_id: null,
+    obsidian_note_ref: "",
+    created_at: createdAt,
+    updated_at: createdAt,
+  };
+
   return {
     mission_id: missionId,
     source: input.source ?? "discord",
     ingress_key: input.ingressKey ?? null,
     thread_ref: input.threadRef ?? null,
+    project_ref: projectRef,
+    epic_ref: epicRef,
     user_request: input.userRequest,
     status: input.status ?? "running",
     category: input.category,
@@ -148,4 +175,27 @@ export async function attachJobToMission(
 
 export function missionArtifactDir(root: string, missionId: string): string {
   return path.join(runtimePath(root, "artifacts"), missionId);
+}
+
+export async function listMissionsForEpic(
+  root: string,
+  epicId: string,
+): Promise<Mission[]> {
+  const files = (await fs.readdir(runtimePath(root, "missions"))).filter(
+    (file) => file.endsWith(".json"),
+  );
+  const missions = await Promise.all(
+    files.map(async (file) =>
+      readJson(
+        path.join(runtimePath(root, "missions"), file),
+        parseMission,
+        null,
+      ),
+    ),
+  );
+  return missions
+    .filter(
+      (mission): mission is Mission => mission?.epic_ref.epic_id === epicId,
+    )
+    .sort((left, right) => left.created_at.localeCompare(right.created_at));
 }

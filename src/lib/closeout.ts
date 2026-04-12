@@ -5,10 +5,19 @@ import type {
   CloseoutFile,
   Mission,
   MissionBacklogItem,
+  ResultFile,
 } from "../types/domain.js";
-import { parseCloseoutFile, parseReportRecord } from "../types/domain.js";
+import {
+  parseCloseoutFile,
+  parseReportRecord,
+  parseResultFile,
+} from "../types/domain.js";
 import { appendEvent } from "./events.js";
 import { missionArtifactDir, readMission, writeMission } from "./missions.js";
+import {
+  assertResultArtifacts,
+  canonicalDeliverableFileName,
+} from "./results.js";
 import { exists, readJson } from "./runtime.js";
 
 const REQUIRED_HEADERS: Record<string, string[]> = {
@@ -94,15 +103,34 @@ export async function verifyMissionCloseout(
     parseCloseoutFile,
     null,
   );
+  const rawResult: ResultFile = await readJson(
+    path.join(artifactDir, "result.json"),
+    parseResultFile,
+  );
+
+  assertHeaders("STATUS.md", statusContent);
+  assertHeaders("NEXT-STEPS.md", nextStepsContent);
+  await assertResultArtifacts({
+    artifactDir,
+    outcomeKind: rawResult.outcome_kind,
+    canonicalDeliverableName: canonicalDeliverableFileName(
+      rawResult.outcome_kind,
+    ),
+  });
+  assertPriorityCoverage(mission.backlog ?? []);
+  await assertRequiredReports(root, mission);
 
   if (!closeout?.obsidian_note_ref) {
     throw new Error("closeout.json missing obsidian_note_ref");
   }
-
-  assertHeaders("STATUS.md", statusContent);
-  assertHeaders("NEXT-STEPS.md", nextStepsContent);
-  assertPriorityCoverage(mission.backlog ?? []);
-  await assertRequiredReports(root, mission);
+  if (!(await exists(closeout.obsidian_note_ref))) {
+    throw new Error(
+      `closeout.json obsidian_note_ref missing: ${closeout.obsidian_note_ref}`,
+    );
+  }
+  if (rawResult.completed_items.length === 0) {
+    throw new Error("result.json missing completed_items");
+  }
 
   mission.status = "completed";
   mission.closeout.status = "passed";

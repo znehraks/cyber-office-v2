@@ -9,12 +9,14 @@ import {
   renderDiscordFinalMessage,
   renderDiscordReportBriefing,
 } from "../src/lib/discord-briefing.js";
+import { listJobsForMission } from "../src/lib/jobs.js";
 import {
   classifyRequest,
   executeMissionFlow,
   parseGodCommand,
 } from "../src/lib/orchestrator.js";
-import { ensureRuntimeLayout } from "../src/lib/runtime.js";
+import { ensureRuntimeLayout, readJson } from "../src/lib/runtime.js";
+import { parseCloseoutFile, parseMission } from "../src/types/domain.js";
 
 async function makeRoot() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "co-v2-orch-"));
@@ -40,6 +42,10 @@ test("classifyRequest routes niche domains to the expected specialist roles", ()
 
 test("executeMissionFlow completes a one-shot ceo mission with reports and closeout", async () => {
   const root = await makeRoot();
+  const obsidianRoot = await fs.mkdtemp(path.join(os.tmpdir(), "co-v2-notes-"));
+  const projectDir = path.join(obsidianRoot, "sns-app");
+  await fs.mkdir(projectDir, { recursive: true });
+  process.env["CO_OBSIDIAN_PROJECTS_ROOT"] = obsidianRoot;
   const result = await executeMissionFlow(root, {
     source: "discord",
     messageId: "orch-1",
@@ -47,6 +53,31 @@ test("executeMissionFlow completes a one-shot ceo mission with reports and close
     request: "로그인 이슈를 조사해줘",
     claudeBin: process.execPath,
     extraArgs: [path.resolve("dist/test/fixtures/fake-claude-success.js")],
+    projectRef: {
+      project_slug: "sns-app",
+      display_name: "SNS App",
+      discord_channel_id: "channel-sns",
+      obsidian_rel_dir: "sns-app",
+      obsidian_project_dir: projectDir,
+    },
+    epicRef: {
+      epic_id: "epic-login",
+      project_slug: "sns-app",
+      title: "로그인 플로우",
+      slug: "로그인-플로우",
+      discord_thread_id: "thread-1",
+      status: "open",
+      active_mission_id: null,
+      obsidian_note_ref: path.join(
+        projectDir,
+        "_cyber-office",
+        "epics",
+        "로그인-플로우",
+        "EPIC.md",
+      ),
+      created_at: "2026-04-12T00:00:00.000Z",
+      updated_at: "2026-04-12T00:00:00.000Z",
+    },
   });
 
   assert.equal(result.missionId.startsWith("mission-"), true);
@@ -78,34 +109,85 @@ test("executeMissionFlow completes a one-shot ceo mission with reports and close
   );
   assert.match(result.reports[0]?.content ?? "", /배정 단계로 넘어갑니다/);
   assert.match(result.reports[1]?.content ?? "", /작업 packet/);
-  assert.match(result.reports[2]?.content ?? "", /summary\.md/);
-  assert.match(result.reports[2]?.content ?? "", /closeout 문서/);
+  assert.doesNotMatch(result.reports[2]?.content ?? "", /summary\.md/);
+  assert.match(result.reports[2]?.content ?? "", /결과 정리, 문서 작성/);
   assert.match(result.reports[3]?.content ?? "", /재시도 필요 여부/);
   assert.match(result.reports[4]?.content ?? "", /mission 완료를 확정/);
 
-  const discordCombined = result.reports
-    .map((report) => renderDiscordReportBriefing(report))
-    .join("\n\n");
-  assert.match(discordCombined, /^---$/m);
-  assert.match(discordCombined, /^\[요청 검토] 로그인 이슈를 조사해줘$/m);
+  const publicReports = result.reports
+    .map((report) =>
+      renderDiscordReportBriefing(report, {
+        requestText: "로그인 이슈를 조사해줘",
+      }),
+    )
+    .filter((report): report is string => report !== null);
+  assert.equal(publicReports.length, 2);
+  assert.match(publicReports[0] ?? "", /^\[접수] 로그인 이슈 착수$/m);
+  assert.match(publicReports[1] ?? "", /^\[진행] 로그인 이슈 진행 결과$/m);
   assert.doesNotMatch(
-    discordCombined,
-    /한눈요약:|요청 요지:|현재 단계:|방금 진행한 내용:|단계 전환 이유:/,
+    publicReports.join("\n\n"),
+    /한눈요약:|요청 요지:|현재 단계:|방금 진행한 내용:|단계 전환 이유:|summary\.md/,
   );
-  assert.match(discordCombined, /^다음: /m);
-  assert.match(discordCombined, /^담당: ceo \/ standard$/m);
+  assert.match(publicReports.join("\n\n"), /^다음: /m);
+  assert.match(publicReports.join("\n\n"), /^담당: ceo \/ standard$/m);
 
   const finalMessage = renderDiscordFinalMessage({
-    requestBrief: result.requestBrief,
+    requestText: "로그인 이슈를 조사해줘",
     missionId: result.missionId,
     worker: result.routing.worker,
     tier: result.routing.tier,
+    resultSummary: result.resultSummary,
+    nextStep: result.nextStep,
+    notePath: result.missionNotePath,
     summaryPath: result.workerResult.summaryPath,
     closeoutStatus: result.closeout.status,
   });
-  assert.match(finalMessage, /^\[최종 결과] 로그인 이슈를 조사해줘$/m);
-  assert.match(finalMessage, /^summary: /m);
+  assert.match(finalMessage, /^\[최종 결과] 로그인 이슈 최종 결과$/m);
+  assert.doesNotMatch(finalMessage, /^summary: /m);
   assert.match(finalMessage, /^closeout: passed$/m);
+
+  const mission = await readJson(
+    path.join(root, "runtime", "missions", `${result.missionId}.json`),
+    parseMission,
+  );
+  assert.equal(mission.project_ref.project_slug, "sns-app");
+  assert.equal(mission.epic_ref.epic_id, "epic-login");
+
+  const missionNotePath = path.join(
+    projectDir,
+    "_cyber-office",
+    "epics",
+    "로그인-플로우",
+    "missions",
+    `${result.missionId}.md`,
+  );
+  const epicNotePath = path.join(
+    projectDir,
+    "_cyber-office",
+    "epics",
+    "로그인-플로우",
+    "EPIC.md",
+  );
+  const [missionNote, epicNote, closeout] = await Promise.all([
+    fs.readFile(missionNotePath, "utf8"),
+    fs.readFile(epicNotePath, "utf8"),
+    readJson(
+      path.join(
+        root,
+        "runtime",
+        "artifacts",
+        result.missionId,
+        "closeout.json",
+      ),
+      parseCloseoutFile,
+    ),
+  ]);
+  assert.match(missionNote, /실제로 만든 것 또는 바뀐 것/);
+  assert.match(missionNote, /요청 결과를 정리하고 핵심 산출물을 준비했습니다/);
+  assert.match(missionNote, /canonical deliverable ref/);
+  assert.match(epicNote, /열린 mission \/ 종료 mission 목록/);
+  assert.equal(closeout.obsidian_note_ref, missionNotePath);
+  assert.match(finalMessage, /^note: /m);
 });
 
 test("parseGodCommand recognizes admin operations and rejects freeform text", () => {
@@ -116,4 +198,71 @@ test("parseGodCommand recognizes admin operations and rejects freeform text", ()
     args: ["tick"],
   });
   assert.equal(parseGodCommand("그냥 대화"), null);
+});
+
+test("executeMissionFlow emits a single public retry briefing on the deterministic retry path", async () => {
+  const root = await makeRoot();
+  const obsidianRoot = await fs.mkdtemp(path.join(os.tmpdir(), "co-v2-notes-"));
+  const projectDir = path.join(obsidianRoot, "retry-app");
+  await fs.mkdir(projectDir, { recursive: true });
+  process.env["CO_OBSIDIAN_PROJECTS_ROOT"] = obsidianRoot;
+
+  const result = await executeMissionFlow(root, {
+    source: "discord",
+    messageId: "orch-retry-1",
+    chatId: "thread-retry-1",
+    request: "로그인 이슈를 조사해줘",
+    testScenario: "retry-once",
+    projectRef: {
+      project_slug: "retry-app",
+      display_name: "Retry App",
+      discord_channel_id: "channel-retry",
+      obsidian_rel_dir: "retry-app",
+      obsidian_project_dir: projectDir,
+    },
+    epicRef: {
+      epic_id: "epic-retry",
+      project_slug: "retry-app",
+      title: "retry epic",
+      slug: "retry-epic",
+      discord_thread_id: "thread-retry-1",
+      status: "open",
+      active_mission_id: null,
+      obsidian_note_ref: path.join(
+        projectDir,
+        "_cyber-office",
+        "epics",
+        "retry-epic",
+        "EPIC.md",
+      ),
+      created_at: "2026-04-12T00:00:00.000Z",
+      updated_at: "2026-04-12T00:00:00.000Z",
+    },
+  });
+
+  assert.equal(result.closeout.status, "passed");
+  const jobs = await listJobsForMission(root, result.missionId);
+  assert.equal(jobs.length, 2);
+  assert.equal(jobs[0]?.status, "failed");
+  assert.equal(jobs[1]?.status, "completed");
+
+  const publicReports = result.reports
+    .map((report) =>
+      renderDiscordReportBriefing(report, {
+        requestText: "로그인 이슈를 조사해줘",
+      }),
+    )
+    .filter((report): report is string => report !== null);
+  assert.equal(publicReports.length, 3);
+  assert.match(publicReports[0] ?? "", /^\[접수] 로그인 이슈 착수$/m);
+  assert.match(publicReports[1] ?? "", /^\[보완 진행] 로그인 이슈 보완 진행$/m);
+  assert.match(publicReports[2] ?? "", /^\[진행] 로그인 이슈 진행 결과$/m);
+  assert.equal(
+    result.reports.some(
+      (report) =>
+        report.report_key === "job.retried" &&
+        report.evidence === "재시도 없음",
+    ),
+    false,
+  );
 });

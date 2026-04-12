@@ -2,7 +2,9 @@ import * as assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  buildHandoffCompletedReport,
   buildRetryReviewReport,
+  createPublicBriefingTitle,
   createRequestBrief,
   createRequestSummary,
 } from "../src/lib/ceo-reporting.js";
@@ -22,6 +24,49 @@ test("createRequestSummary keeps target and purpose in one reusable sentence", (
   assert.match(summary, /로그인 이슈/);
   assert.match(summary, /정리/);
   assert.equal(summary.length <= 80, true);
+});
+
+test("createPublicBriefingTitle derives a non-truncated stage title from the request subject", () => {
+  const title = createPublicBriefingTitle(
+    "간단한 투두앱을 실제 구현으로 진행해줘. 최소 기능은 추가, 완료 토글, 삭제야.",
+    "progress",
+  );
+
+  assert.equal(title, "간단한 투두앱 진행 결과");
+  assert.doesNotMatch(title, /…/);
+});
+
+test("handoff completed report reflects actual deliverables instead of summary path jargon", () => {
+  const report = buildHandoffCompletedReport(
+    "간단한 투두앱 실제 구현 건의 결과와 후속 조치를 정리하는 작업입니다.",
+    {
+      outcome_kind: "code_change",
+      result_summary:
+        "투두앱 기본 기능 1차 구현을 마쳤습니다. 실행 가능한 화면과 저장 흐름을 정리했습니다.",
+      completed_items: [
+        "할 일 추가",
+        "완료 토글",
+        "삭제",
+        "전체/진행 중/완료 필터",
+        "localStorage 저장",
+      ],
+      remaining_work: ["테스트 보강과 후속 기능 우선순위 정리"],
+      risks: [],
+      deliverable_refs: ["/tmp/IMPLEMENTATION.md"],
+      workspace_ref: "/tmp/todo-app",
+      changed_paths: ["src/App.tsx"],
+      verification: ["npm test"],
+      follow_up_tasks: ["테스트 보강"],
+    },
+  );
+
+  assert.equal(report.stage, "결과 확보");
+  assert.match(report.snapshot, /투두앱 기본 기능 1차 구현/);
+  assert.match(report.completed, /할 일 추가/);
+  assert.match(report.completed, /localStorage 저장/);
+  assert.doesNotMatch(report.snapshot, /summary\.md/);
+  assert.doesNotMatch(report.completed, /summary\.md/);
+  assert.match(report.next, /테스트 보강/);
 });
 
 test("retry review templates distinguish no-retry and retry-required paths", () => {

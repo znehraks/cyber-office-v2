@@ -37,6 +37,34 @@ export interface ClientLike {
   user?: UserLike | null;
 }
 
+export interface ParsedEpicHeader {
+  epicTitle: string;
+  requestBody: string;
+}
+
+export type ResolutionChoice =
+  | {
+      kind: "candidate";
+      index: number;
+    }
+  | {
+      kind: "new";
+    };
+
+export function shouldHandleCeoIngress(input: {
+  isDm: boolean;
+  mentioned: boolean;
+  isManagedEpicThread: boolean;
+  hasPendingResolutionChoice: boolean;
+}): boolean {
+  return (
+    input.isDm ||
+    input.mentioned ||
+    input.isManagedEpicThread ||
+    input.hasPendingResolutionChoice
+  );
+}
+
 export function stripBotMention(
   message: MessageLike,
   client: ClientLike,
@@ -69,4 +97,43 @@ export async function ensureReplyChannel<T extends ReplyChannelLike>(message: {
     return message.channel;
   }
   return message.channel;
+}
+
+export function parseEpicHeader(content: string): ParsedEpicHeader | null {
+  const [firstLine = "", ...rest] = content.split(/\r?\n/u);
+  const match = /^epic\s*:\s*(.+)$/iu.exec(firstLine.trim());
+  if (!match) {
+    return null;
+  }
+  const epicTitle = match[1]?.trim() ?? "";
+  const requestBody = rest.join("\n").trim();
+  if (epicTitle === "" || requestBody === "") {
+    return null;
+  }
+  return {
+    epicTitle,
+    requestBody,
+  };
+}
+
+export function parseResolutionChoice(
+  content: string,
+): ResolutionChoice | null {
+  const normalized = content.trim().toLowerCase();
+  if (normalized === "new") {
+    return { kind: "new" };
+  }
+  if (/^[1-3]$/u.test(normalized)) {
+    return {
+      kind: "candidate",
+      index: Number.parseInt(normalized, 10) - 1,
+    };
+  }
+  return null;
+}
+
+export function parseWorkspaceBinding(content: string): string | null {
+  const match = /^workspace\s*:\s*(.+)$/iu.exec(content.trim());
+  const workspacePath = match?.[1]?.trim() ?? "";
+  return workspacePath === "" ? null : workspacePath;
 }

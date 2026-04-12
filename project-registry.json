@@ -1,0 +1,10 @@
+{
+  "projects": [
+    {
+      "project_slug": "todo-app-e2e",
+      "display_name": "Todo App E2E",
+      "discord_channel_id": "1486179553603883021",
+      "obsidian_rel_dir": "todo-app-e2e"
+    }
+  ]
+}

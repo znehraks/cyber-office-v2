@@ -1,5 +1,6 @@
 import type {
   ReportInput,
+  ResultFile,
   RoutingCategory,
   RoutingDecision,
 } from "../types/domain.js";
@@ -27,8 +28,24 @@ const CATEGORY_LABELS: Record<RoutingCategory, string> = {
   "high-risk": "고위험 검토 건",
 };
 
+export type PublicBriefingPhase =
+  | "intake"
+  | "progress"
+  | "retry"
+  | "final"
+  | "status";
+
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function stripControlTokens(value: string): string {
+  return normalizeWhitespace(
+    value
+      .replace(/\[\[co:[^[\]]+\]\]/giu, " ")
+      .replace(/^after-this:\s*/iu, " ")
+      .replace(/^epic:\s*[^\n]+\s*/iu, " "),
+  );
 }
 
 function truncateText(value: string, maxLength: number): string {
@@ -42,6 +59,91 @@ function describeCategory(category: RoutingCategory): string {
   return CATEGORY_LABELS[category];
 }
 
+function firstSentence(value: string): string {
+  const normalized = stripControlTokens(value);
+  if (normalized === "") {
+    return "";
+  }
+  const [line = ""] = normalized.split(/\n+/u, 1);
+  const [sentence = line] = line.split(/[.!?]\s*/u, 1);
+  return normalizeWhitespace(sentence);
+}
+
+function stripRequestEnding(value: string): string {
+  return normalizeWhitespace(
+    value.replace(
+      /(해줘|해주세요|해 줘|부탁해|부탁합니다|가능할까|진행해줘|진행해주세요|정리해줘|검토해줘|조사해줘|만들어줘|구현해줘)$/u,
+      "",
+    ),
+  );
+}
+
+function deriveRequestSubject(request: string): string {
+  const sentence = stripRequestEnding(firstSentence(request));
+  if (sentence === "") {
+    return "요청 작업";
+  }
+
+  const objectMatch = sentence.match(
+    /^(.+?)(?:을|를|에 대한|관련)?\s+(?:실제\s+|기본\s+|1차\s+|초기\s+)?(?:구현|개발|작성|정리|조사|검토|설계|수정|개선|분석|제작|생성|구축|도입|최적화|리팩터링)/u,
+  );
+  if (objectMatch?.[1]) {
+    return normalizeWhitespace(objectMatch[1]);
+  }
+
+  const trimmed = sentence.replace(/["'`]/gu, "").trim();
+  const withoutParticle = normalizeWhitespace(
+    trimmed.replace(/(을|를|은|는|이|가)$/u, ""),
+  );
+  if (withoutParticle !== "" && withoutParticle.length <= 18) {
+    return withoutParticle;
+  }
+  if (trimmed.length <= 18) {
+    return trimmed;
+  }
+  return normalizeWhitespace(withoutParticle.slice(0, 18));
+}
+
+function deriveActionLabel(request: string): string {
+  const cleaned = stripControlTokens(request);
+  if (/(구현|개발|만들|수정|개선|리팩터링|fix)/iu.test(cleaned)) {
+    return "구현";
+  }
+  if (/(조사|분석|리서치|검토|점검)/iu.test(cleaned)) {
+    return "검토";
+  }
+  if (/(작성|정리|문서|카피)/iu.test(cleaned)) {
+    return "작성";
+  }
+  if (/(설계|기획|플랜)/iu.test(cleaned)) {
+    return "설계";
+  }
+  if (/(디자인|ui|ux)/iu.test(cleaned)) {
+    return "디자인";
+  }
+  return "진행";
+}
+
+function joinNaturalList(items: string[], maxItems: number): string {
+  const filtered = items
+    .map((item) => normalizeWhitespace(item))
+    .filter(Boolean);
+  if (filtered.length === 0) {
+    return "";
+  }
+  const visible = filtered.slice(0, maxItems);
+  const suffix = filtered.length > maxItems ? " 등을" : "까지";
+  return `${visible.join(", ")}${suffix}`;
+}
+
+function createCompletedItemsSentence(result: ResultFile): string {
+  const completed = joinNaturalList(result.completed_items, 5);
+  if (completed === "") {
+    return "이번 단계의 핵심 결과를 정리했습니다.";
+  }
+  return `${completed} 반영했습니다.`;
+}
+
 export function createRequestBrief(request: string): string {
   const normalized = normalizeWhitespace(request);
   if (normalized === "") {
@@ -52,7 +154,7 @@ export function createRequestBrief(request: string): string {
 }
 
 export function createRequestSummary(request: string): string {
-  const normalized = normalizeWhitespace(request);
+  const normalized = stripControlTokens(request);
   if (normalized === "") {
     return "요청 내용을 검토해 담당 배정부터 결과 마감까지 정리하는 작업입니다.";
   }
@@ -68,6 +170,45 @@ export function createRequestSummary(request: string): string {
   }
 
   return `요청하신 "${truncateText(normalized, 48)}" 건의 진행과 결과를 정리하는 작업입니다.`;
+}
+
+export function createPublicBriefingTitle(
+  request: string,
+  phase: PublicBriefingPhase,
+): string {
+  const subject = deriveRequestSubject(request);
+  switch (phase) {
+    case "intake":
+      return `${subject} 착수`;
+    case "progress":
+      return `${subject} 진행 결과`;
+    case "retry":
+      return `${subject} 보완 진행`;
+    case "final":
+      return `${subject} 최종 결과`;
+    case "status":
+      return `${subject} 현재 상태`;
+  }
+}
+
+export function createPublicRequestLead(
+  request: string,
+  phase: PublicBriefingPhase,
+): string {
+  const subject = deriveRequestSubject(request);
+  const action = deriveActionLabel(request);
+  switch (phase) {
+    case "intake":
+      return `요청하신 ${subject} ${action} 건을 실행 가능한 작업으로 정리했고, 바로 착수 가능한 상태로 맞췄습니다.`;
+    case "progress":
+      return `요청하신 ${subject} ${action} 건은 1차 결과를 확보했고, 이번 mission에서 만든 내용을 기준으로 정리하고 있습니다.`;
+    case "retry":
+      return `요청하신 ${subject} ${action} 건은 현재 결과만으로 마감 근거가 부족해 보완 실행으로 이어갑니다.`;
+    case "final":
+      return `요청하신 ${subject} ${action} 건은 이번 mission 범위까지 정리를 마쳤습니다.`;
+    case "status":
+      return `요청하신 ${subject} ${action} 건의 현재 진행 상태를 최신 기준으로 정리해드립니다.`;
+  }
 }
 
 export function buildMissionCreatedReport(
@@ -106,19 +247,20 @@ export function buildJobRoutedReport(
 
 export function buildHandoffCompletedReport(
   requestSummary: string,
-  summaryPath: string,
+  result: ResultFile,
 ): CeoStageReport {
   return {
     stage: "결과 확보",
     requestSummary,
-    snapshot:
-      "필수 산출물인 summary.md를 확보했습니다. 결과 정리가 가능해 마감 문서 작성 단계로 넘어갑니다.",
-    completed:
-      "worker가 남긴 summary.md를 수집해 결과 정리를 시작할 수 있게 했습니다.",
+    snapshot: `${result.result_summary} 이번 mission에서 만든 결과를 기준으로 마감 정리에 들어갈 수 있습니다.`,
+    completed: createCompletedItemsSentence(result),
     transitionReason:
-      "summary.md가 생성돼 이번 작업의 결과와 후속 조치를 closeout 문서에 정리할 수 있습니다.",
-    next: "closeout 문서를 작성하고 완료 조건을 점검합니다.",
-    evidence: summaryPath,
+      result.remaining_work.length > 0
+        ? "핵심 결과가 확보돼 남은 작업과 후속 우선순위를 분리해 정리할 수 있습니다."
+        : "핵심 결과가 확보돼 이번 mission을 마감 정리할 수 있습니다.",
+    next:
+      result.remaining_work[0] ?? "mission note와 후속 필요 여부를 정리합니다.",
+    evidence: result.result_summary,
   };
 }
 

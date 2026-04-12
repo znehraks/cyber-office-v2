@@ -10,9 +10,15 @@ import { ingestIngressEvent } from "./lib/ingress.js";
 import { createJob, writePacket } from "./lib/jobs.js";
 import { createMission, writeMission } from "./lib/missions.js";
 import { executeMissionFlow } from "./lib/orchestrator.js";
+import { ensureLocalProjectRef, epicNotePath } from "./lib/projects.js";
 import { recordReport } from "./lib/reporting.js";
 import { resolveRepoRoot } from "./lib/root.js";
-import { ensureRuntimeLayout, readJson, runtimePath } from "./lib/runtime.js";
+import {
+  createStampedId,
+  ensureRuntimeLayout,
+  readJson,
+  runtimePath,
+} from "./lib/runtime.js";
 import {
   attachSession,
   readSessionStatus,
@@ -153,11 +159,29 @@ async function main(): Promise<void> {
   if (command === "ingest" && args[0] === "discord-message") {
     const [, messageId = "", ...requestParts] = args;
     const request = requestParts.join(" ").trim();
+    const projectRef = await ensureLocalProjectRef(cwd);
     const result = await ingestIngressEvent(cwd, {
       source: "discord",
       eventType: "message_create",
       upstreamEventId: messageId,
       threadRef: { chatId: "cli", messageId },
+      projectRef,
+      epicRef: {
+        epic_id: createStampedId(
+          "epic",
+          `${projectRef.project_slug}:cli`,
+          new Date().toISOString(),
+        ),
+        project_slug: projectRef.project_slug,
+        title: "runtime",
+        slug: "runtime",
+        discord_thread_id: "cli",
+        status: "open",
+        active_mission_id: null,
+        obsidian_note_ref: epicNotePath(projectRef, "runtime"),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
       userRequest: request,
       category: "standard",
       priorityFloor: "P1",

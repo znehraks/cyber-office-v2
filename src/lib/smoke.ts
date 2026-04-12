@@ -1,8 +1,11 @@
 import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
 
 import type {
+  Mission,
   PacketManifest,
+  ProjectRef,
   RoutingDecision,
   SmokeOptions,
 } from "../types/domain.js";
@@ -16,10 +19,13 @@ import {
   createRequestSummary,
 } from "./ceo-reporting.js";
 import { verifyMissionCloseout } from "./closeout.js";
+import { bindEpicMission, createEpicRecord } from "./epics.js";
 import { ingestIngressEvent } from "./ingress.js";
 import { createJob, writePacket } from "./jobs.js";
-import { readMission } from "./missions.js";
+import { readMission, writeMission } from "./missions.js";
+import { writeEpicOverviewNote, writeMissionCanonicalNote } from "./notes.js";
 import { recordReport } from "./reporting.js";
+import { canonicalDeliverableFileName, readResultFile } from "./results.js";
 import { runtimePath } from "./runtime.js";
 import { runWorker } from "./worker-runner.js";
 
@@ -48,15 +54,23 @@ function buildPacket(
     open_questions: [],
     allowed_write_roots: [path.join(root, "runtime", "artifacts", jobId)],
     working_dir: root,
+    outcome_kind: "research_brief",
+    canonical_deliverable_name: canonicalDeliverableFileName("research_brief"),
   };
 }
 
 async function writeCloseoutArtifacts(
   root: string,
-  missionId: string,
+  mission: Mission,
 ): Promise<void> {
-  const artifactDir = runtimePath(root, "artifacts", missionId);
+  const artifactDir = runtimePath(root, "artifacts", mission.mission_id);
   await fs.mkdir(artifactDir, { recursive: true });
+  const missionNote = await writeMissionCanonicalNote(root, mission, {
+    summaryBody: "# summary\n\nsmoke complete\n",
+    completedItems: ["- runtime harness smoke"],
+    nextSteps: ["- discord wiring"],
+  });
+  await writeEpicOverviewNote(root, mission);
   await fs.writeFile(
     path.join(artifactDir, "STATUS.md"),
     "# 현재 상태\n\nsmoke complete\n\n# 이번 세션에서 완료한 것\n\n- runtime harness smoke\n",
@@ -72,7 +86,7 @@ async function writeCloseoutArtifacts(
     JSON.stringify(
       {
         status: "complete",
-        obsidian_note_ref: path.join(root, "README.md"),
+        obsidian_note_ref: missionNote,
         completed_items: ["runtime harness smoke"],
         next_steps: ["discord wiring"],
       },
@@ -81,6 +95,45 @@ async function writeCloseoutArtifacts(
     ),
     "utf8",
   );
+  await fs.writeFile(
+    path.join(artifactDir, "RESEARCH.md"),
+    "# Research\n\n## Key Findings\n\n- smoke 1\n- smoke 2\n- smoke 3\n\n## Recommended Next Steps\n\n- discord wiring\n",
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(artifactDir, "result.json"),
+    JSON.stringify(
+      {
+        outcome_kind: "research_brief",
+        result_summary:
+          "런타임 스모크 경로를 점검하고 핵심 산출물을 확인했습니다.",
+        completed_items: ["runtime harness smoke", "closeout docs"],
+        remaining_work: ["discord wiring"],
+        risks: [],
+        deliverable_refs: [path.join(artifactDir, "RESEARCH.md")],
+        key_findings: ["smoke 1", "smoke 2", "smoke 3"],
+        recommended_next_steps: ["discord wiring"],
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+}
+
+async function makeSmokeProjectRef(): Promise<ProjectRef> {
+  const obsidianRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), "co-v2-smoke-projects-"),
+  );
+  const projectDir = path.join(obsidianRoot, "smoke-project");
+  await fs.mkdir(projectDir, { recursive: true });
+  return {
+    project_slug: "smoke-project",
+    display_name: "Smoke Project",
+    discord_channel_id: "smoke-channel",
+    obsidian_rel_dir: "smoke-project",
+    obsidian_project_dir: projectDir,
+  };
 }
 
 export async function runSmokeScenario(
@@ -95,11 +148,27 @@ export async function runSmokeScenario(
 }> {
   const inputRef = await ensureSmokeInput(root);
   const messageId = options.messageId ?? `smoke-${String(Date.now())}`;
+  const projectRef = await makeSmokeProjectRef();
+  const epicRef = await createEpicRecord(root, {
+    projectSlug: projectRef.project_slug,
+    title: "smoke epic",
+    discordThreadId: "smoke-thread",
+    obsidianNoteRef: path.join(
+      projectRef.obsidian_project_dir,
+      "_cyber-office",
+      "epics",
+      "smoke-epic",
+      "EPIC.md",
+    ),
+    now: options.now,
+  });
   const ingress = await ingestIngressEvent(root, {
     source: "discord",
     eventType: "message_create",
     upstreamEventId: messageId,
     threadRef: { chatId: "smoke-thread", messageId },
+    projectRef,
+    epicRef,
     userRequest: options.request ?? "smoke scenario",
     category: "standard",
     priorityFloor: "P1",
@@ -112,6 +181,18 @@ export async function runSmokeScenario(
       `Mission missing after smoke ingress: ${ingress.missionId}`,
     );
   }
+  const boundEpic = await bindEpicMission(
+    root,
+    epicRef.epic_id,
+    mission.mission_id,
+    {
+      now: options.now,
+    },
+  );
+  mission.epic_ref = boundEpic;
+  await writeMission(root, mission);
+  await writeMissionCanonicalNote(root, mission);
+  await writeEpicOverviewNote(root, mission);
   const requestSummary = createRequestSummary(mission.user_request);
   const requestBrief = createRequestBrief(mission.user_request);
   const routing: RoutingDecision = {
@@ -158,6 +239,7 @@ export async function runSmokeScenario(
     extraArgs: options.extraArgs,
     now: options.now,
   });
+  const result = await readResultFile(worker.artifactDir);
 
   await recordReport(root, {
     missionId: mission.mission_id,
@@ -165,7 +247,7 @@ export async function runSmokeScenario(
     role: "ceo",
     tier: "standard",
     requestBrief,
-    ...buildHandoffCompletedReport(requestSummary, worker.summaryPath),
+    ...buildHandoffCompletedReport(requestSummary, result),
   });
 
   await recordReport(root, {
@@ -180,7 +262,7 @@ export async function runSmokeScenario(
     }),
   });
 
-  await writeCloseoutArtifacts(root, mission.mission_id);
+  await writeCloseoutArtifacts(root, mission);
 
   await recordReport(root, {
     missionId: mission.mission_id,

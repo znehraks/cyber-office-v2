@@ -7,6 +7,7 @@ import type {
   RoleRegistryFile,
 } from "../types/domain.js";
 import { parseMcpConfig } from "../types/domain.js";
+import { projectRegistryFile } from "./projects.js";
 import {
   ALLOWED_HIGH_ROLES,
   LEGACY_SPECIALIST_ROLES,
@@ -33,7 +34,8 @@ function buildPrompt(role: RoleDefinition): string {
     "- Discord ingress는 읽지 않는다. packet + artifact path만 입력으로 사용한다.",
     "- packet.required_refs 가 모두 존재하지 않으면 작업을 시작하지 않는다.",
     "- 산출물은 오직 runtime/artifacts/<job_id>/ 아래에만 쓴다.",
-    "- 최소 필수 산출물은 summary.md 이다.",
+    "- 최소 필수 산출물은 summary.md, result.json, canonical deliverable 3개다.",
+    "- result.json은 packet에 적힌 outcome_kind 스키마를 정확히 따라야 한다.",
     "- handoff가 필요하면 handoff.json을 만든다.",
     "- closeout 문서를 직접 완결할 때는 STATUS.md, NEXT-STEPS.md, closeout.json 규약을 따른다.",
     "- tier는 내부적으로만 사용된다. 외부 보고에는 role / tier만 노출한다.",
@@ -90,6 +92,16 @@ export async function bootstrapRuntimeWorkers(
     await writeText(path.join(roleDir, "prompt.txt"), buildPrompt(role));
     await writeJson(path.join(roleDir, "settings.json"), buildSettings(role));
     await writeJson(path.join(roleDir, "mcp.json"), await buildMcpConfig(role));
+  }
+
+  const projectRegistryPath = projectRegistryFile(root);
+  const existingProjectRegistry = await readJson(
+    projectRegistryPath,
+    (value) => value,
+    null,
+  );
+  if (!existingProjectRegistry) {
+    await writeJson(projectRegistryPath, { projects: [] });
   }
 
   return registry;

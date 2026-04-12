@@ -1,9 +1,10 @@
 import type { Job, ReportRecord } from "../types/domain.js";
-import { createRequestBrief } from "./ceo-reporting.js";
 import { renderDiscordFollowUpBriefing } from "./discord-briefing.js";
+import { clearEpicMission, findEpicByThreadId } from "./epics.js";
 import { listJobsForMission } from "./jobs.js";
+import { readMission } from "./missions.js";
 import { listMissionReports } from "./reporting.js";
-import { findActiveThreadMission } from "./thread-missions.js";
+import { queueAfterThisFollowUp } from "./requests.js";
 
 const REPORT_ORDER: Record<string, number> = {
   "mission.created": 1,
@@ -32,10 +33,9 @@ function pickLatestJob(jobs: Job[]): Job | null {
 function describeFollowUpStatus(
   latestReport: ReportRecord | null,
   latestJob: Job | null,
-): { stage: string; statusLine: string; detailLine: string; nextLine: string } {
+): { statusLine: string; detailLine: string; nextLine: string } {
   if (latestJob?.status === "failed") {
     return {
-      stage: "진행 상태",
       statusLine:
         "현재 담당 작업이 오류로 멈춰 있어 복구 경로와 다음 대응을 정리하는 중입니다.",
       detailLine:
@@ -48,7 +48,6 @@ function describeFollowUpStatus(
 
   if (latestReport?.stage === "결과 확보") {
     return {
-      stage: "진행 상태",
       statusLine:
         "현재 결과물은 확보됐고, 마감 문서 정리와 완료 조건 점검을 진행 중입니다.",
       detailLine: latestReport.completed,
@@ -58,7 +57,6 @@ function describeFollowUpStatus(
 
   if (latestReport?.stage === "마감 점검") {
     return {
-      stage: "진행 상태",
       statusLine:
         "현재 마감 가능 여부를 확인 중이며, 재시도 없이 끝낼지 추가 보완이 필요한지 판단하는 단계입니다.",
       detailLine: latestReport.completed,
@@ -68,7 +66,6 @@ function describeFollowUpStatus(
 
   if (latestJob?.status === "running") {
     return {
-      stage: "진행 상태",
       statusLine: `현재 ${latestJob.worker} / ${latestJob.tier}가 작업을 진행 중이며, 결과 확보 전 단계입니다.`,
       detailLine:
         latestReport?.completed ??
@@ -81,7 +78,6 @@ function describeFollowUpStatus(
 
   if (latestReport) {
     return {
-      stage: "진행 상태",
       statusLine: `현재 ${latestReport.stage} 단계까지 진행됐고, 최신 상태를 기준으로 작업 흐름을 이어가고 있습니다.`,
       detailLine: latestReport.completed,
       nextLine: latestReport.next,
@@ -89,7 +85,6 @@ function describeFollowUpStatus(
   }
 
   return {
-    stage: "진행 상태",
     statusLine:
       "현재 요청은 접수된 상태이며, 담당 배정과 실행 준비를 계속 진행하고 있습니다.",
     detailLine:
@@ -100,10 +95,19 @@ function describeFollowUpStatus(
 
 export async function buildFollowUpReply(
   root: string,
-  chatId: string,
+  threadId: string,
 ): Promise<{ missionId: string; content: string } | null> {
-  const mission = await findActiveThreadMission(root, chatId);
+  const epic = await findEpicByThreadId(root, threadId);
+  if (!epic?.active_mission_id) {
+    return null;
+  }
+
+  const mission = await readMission(root, epic.active_mission_id);
   if (!mission) {
+    return null;
+  }
+  if (mission.status === "completed" || mission.closeout.status === "passed") {
+    await clearEpicMission(root, epic.epic_id, mission.mission_id);
     return null;
   }
 
@@ -114,19 +118,63 @@ export async function buildFollowUpReply(
   const latestReport = pickLatestReport(reports);
   const latestJob = pickLatestJob(jobs);
   const status = describeFollowUpStatus(latestReport, latestJob);
-  const requestBrief =
-    latestReport?.request_brief ?? createRequestBrief(mission.user_request);
-
   return {
     missionId: mission.mission_id,
     content: renderDiscordFollowUpBriefing({
-      requestBrief,
-      stage: status.stage,
+      requestText: mission.user_request,
       statusLine: status.statusLine,
       detailLine: status.detailLine,
       nextLine: status.nextLine,
       role: "ceo",
       tier: "standard",
     }),
+  };
+}
+
+export async function handleActiveMissionThreadInput(
+  root: string,
+  input: {
+    threadId: string;
+    requestingUserId: string;
+    content: string;
+  },
+): Promise<
+  | { kind: "status"; content: string; missionId: string }
+  | { kind: "queued"; content: string }
+  | { kind: "rejected"; content: string }
+> {
+  const normalized = input.content.trim();
+  if (normalized.toLowerCase() === "status") {
+    const reply = await buildFollowUpReply(root, input.threadId);
+    if (!reply) {
+      return {
+        kind: "rejected",
+        content: "현재 진행 중인 mission이 없어 상태를 보고할 수 없습니다.",
+      };
+    }
+    return {
+      kind: "status",
+      content: reply.content,
+      missionId: reply.missionId,
+    };
+  }
+
+  if (/^after-this:\s+\S/iu.test(normalized)) {
+    await queueAfterThisFollowUp(root, {
+      epicThreadId: input.threadId,
+      requestingUserId: input.requestingUserId,
+      requestText: normalized,
+    });
+    return {
+      kind: "queued",
+      content:
+        "현재 작업이 끝나는 즉시 이어서 처리할 후속 요청으로 등록했습니다. 진행 중에는 `status`, 예약은 `after-this:`만 받습니다.",
+    };
+  }
+
+  return {
+    kind: "rejected",
+    content:
+      "현재 mission이 진행 중입니다. 상태 확인은 `status`, 다음 요청 예약은 `after-this: <요청>` 형식으로 보내주세요.",
   };
 }

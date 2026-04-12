@@ -89,13 +89,8 @@ test("duplicate report keys only emit one user-facing report", async () => {
     /요청 잘 받았습니다|진행 상황을 이어서 공유드릴게요|작업이 잘 마무리되어/,
   );
 
-  const discordBriefing = renderDiscordReportBriefing(first);
-  assert.match(discordBriefing, /^---$/m);
-  assert.match(discordBriefing, /^\[요청 검토] 보고 중복 방지$/m);
-  assert.doesNotMatch(
-    discordBriefing,
-    /한눈요약:|요청 요지:|현재 단계:|단계 전환 이유:/,
-  );
-  assert.match(discordBriefing, /^다음: /m);
-  assert.match(discordBriefing, /^담당: ceo \/ standard$/m);
+  const discordBriefing = renderDiscordReportBriefing(first, {
+    requestText: "보고 중복 방지",
+  });
+  assert.equal(discordBriefing, null);
 });

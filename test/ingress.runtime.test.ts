@@ -18,6 +18,31 @@ async function makeRoot(): Promise<string> {
   return root;
 }
 
+function buildProjectContext() {
+  return {
+    projectRef: {
+      project_slug: "sns-app",
+      display_name: "SNS App",
+      discord_channel_id: "channel-sns",
+      obsidian_rel_dir: "sns-app",
+      obsidian_project_dir: "/tmp/sns-app",
+    },
+    epicRef: {
+      epic_id: "epic-login",
+      project_slug: "sns-app",
+      title: "로그인 플로우",
+      slug: "로그인-플로우",
+      discord_thread_id: "chat-1",
+      status: "open" as const,
+      active_mission_id: null,
+      obsidian_note_ref:
+        "/tmp/sns-app/_cyber-office/epics/로그인-플로우/EPIC.md",
+      created_at: "2026-04-12T00:00:00.000Z",
+      updated_at: "2026-04-12T00:00:00.000Z",
+    },
+  };
+}
+
 test("same discord message id creates exactly one mission", async () => {
   const root = await makeRoot();
   const payload: IngressPayload = {
@@ -25,6 +50,7 @@ test("same discord message id creates exactly one mission", async () => {
     eventType: "message_create",
     upstreamEventId: "12345",
     threadRef: { chatId: "chat-1", messageId: "12345" },
+    ...buildProjectContext(),
     userRequest: "로그인 플로우 고쳐줘",
     category: "standard",
     priorityFloor: "P1",
@@ -50,6 +76,7 @@ test("same text with different message ids creates two missions", async () => {
     eventType: "message_create",
     upstreamEventId: "a-1",
     threadRef: { chatId: "chat-1", messageId: "a-1" },
+    ...buildProjectContext(),
     userRequest: "같은 텍스트",
     category: "standard",
     priorityFloor: "P1",
@@ -59,6 +86,7 @@ test("same text with different message ids creates two missions", async () => {
     eventType: "message_create",
     upstreamEventId: "a-2",
     threadRef: { chatId: "chat-1", messageId: "a-2" },
+    ...buildProjectContext(),
     userRequest: "같은 텍스트",
     category: "standard",
     priorityFloor: "P1",

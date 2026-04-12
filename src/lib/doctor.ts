@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 import type { RoleRegistryFile } from "../types/domain.js";
 import { parseRoleRegistryFile } from "../types/domain.js";
+import { validateProjectRegistry } from "./projects.js";
 import { ALLOWED_HIGH_ROLES, LEGACY_SPECIALIST_ROLES } from "./roles.js";
 import { exists, readJson, runtimePath } from "./runtime.js";
 
@@ -44,6 +45,8 @@ export async function runDoctor(
       }
     }
   }
+
+  await validateProjectRegistry(root);
 
   const files = await fs.readdir(runtimePath(root, "workers"));
   return {

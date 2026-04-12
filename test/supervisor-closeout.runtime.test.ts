@@ -158,13 +158,36 @@ test("mission closeout is blocked by unresolved P1 backlog and passes once clear
     JSON.stringify(
       {
         status: "complete",
-        obsidian_note_ref: "/tmp/obsidian-note.md",
+        obsidian_note_ref: path.join(root, "obsidian-note.md"),
         completed_items: ["구현"],
         next_steps: [],
       },
       null,
       2,
     ),
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(artifactDir, "result.json"),
+    JSON.stringify(
+      {
+        outcome_kind: "research_brief",
+        result_summary: "로그인 이슈의 원인을 정리했습니다.",
+        completed_items: ["원인 분석", "대응 정리", "보고 작성"],
+        remaining_work: [],
+        risks: [],
+        deliverable_refs: [path.join(artifactDir, "RESEARCH.md")],
+        key_findings: ["원인 1", "원인 2", "원인 3"],
+        recommended_next_steps: ["패치 적용"],
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(artifactDir, "RESEARCH.md"),
+    "# Research\n\n## Key Findings\n\n- 원인 1\n- 원인 2\n- 원인 3\n\n## Recommended Next Steps\n\n- 패치 적용\n",
     "utf8",
   );
 
@@ -176,6 +199,7 @@ test("mission closeout is blocked by unresolved P1 backlog and passes once clear
     { id: "item-1", title: "핵심 버그", priority: "P1", status: "done" },
   ];
   await writeMission(root, loaded);
+  await fs.writeFile(path.join(root, "obsidian-note.md"), "# note\n", "utf8");
 
   for (const reportKey of loaded.closeout.required_reports) {
     await recordReport(root, {
@@ -198,4 +222,93 @@ test("mission closeout is blocked by unresolved P1 backlog and passes once clear
 
   const result = await verifyMissionCloseout(root, mission.mission_id);
   assert.equal(result.status, "passed");
+});
+
+test("mission closeout is blocked when result.json is missing canonical deliverable evidence", async () => {
+  const root = await makeRoot();
+  const mission = createMission({
+    missionId: "mission-5",
+    ingressKey: "v1:discord:message_create:5",
+    userRequest: "구현 결과 검증",
+    category: "standard",
+    priorityFloor: "P1",
+  });
+  await writeMission(root, mission);
+
+  const artifactDir = path.join(
+    root,
+    "runtime",
+    "artifacts",
+    mission.mission_id,
+  );
+  await fs.mkdir(artifactDir, { recursive: true });
+  await fs.writeFile(
+    path.join(artifactDir, "STATUS.md"),
+    "# 현재 상태\n\n완료\n\n# 이번 세션에서 완료한 것\n\n- 구현\n",
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(artifactDir, "NEXT-STEPS.md"),
+    "# 다음 우선순위\n\n- 없음\n\n# 재개 순서\n\n- 없음\n",
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(artifactDir, "closeout.json"),
+    JSON.stringify(
+      {
+        status: "complete",
+        obsidian_note_ref: path.join(root, "obsidian-note-2.md"),
+        completed_items: ["구현"],
+        next_steps: [],
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  await fs.writeFile(path.join(root, "obsidian-note-2.md"), "# note\n", "utf8");
+  await fs.writeFile(
+    path.join(artifactDir, "result.json"),
+    JSON.stringify(
+      {
+        outcome_kind: "code_change",
+        result_summary: "job: job-123",
+        completed_items: ["구현"],
+        remaining_work: [],
+        risks: [],
+        deliverable_refs: [],
+        workspace_ref: "/tmp/workspace",
+        changed_paths: [],
+        verification: [],
+        follow_up_tasks: [],
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  for (const reportKey of mission.closeout.required_reports) {
+    await recordReport(root, {
+      missionId: mission.mission_id,
+      reportKey,
+      stage: reportKey,
+      role: "ceo",
+      tier: "standard",
+      requestBrief: "closeout 검증",
+      requestSummary:
+        "closeout 필수 보고 충족 여부를 정리하는 테스트 작업입니다.",
+      snapshot: `${reportKey} 보고가 기록됐고 closeout 검증 조건을 맞추는 중입니다.`,
+      completed: `${reportKey} emitted`,
+      transitionReason:
+        "필수 보고 항목을 채워 closeout 검증을 통과할 수 있게 합니다.",
+      next: "n/a",
+      evidence: null,
+    });
+  }
+
+  await assert.rejects(
+    verifyMissionCloseout(root, mission.mission_id),
+    /result\.json|deliverable|result_summary/i,
+  );
 });

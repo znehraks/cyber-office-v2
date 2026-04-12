@@ -67,8 +67,9 @@ $HOME/.config/cyber-office-v2/runtime.env
 ## 구조
 
 - `role-registry.json`: 역할/티어/라우팅 규약
+- `project-registry.json`: 프로젝트 채널/Obsidian 경로 registry
 - `runtime/workers/*`: role별 `prompt.txt`, `settings.json`, `mcp.json`
-- `runtime/*`: mission/job/event/artifact/ingress/packet/state 저장소
+- `runtime/*`: project-epic-mission runtime state 저장소
 - `src/lib/*`: runtime 하네스 구현
 - `src/discord-bot.js`: Discord ceo/god bot 엔트리
 - `test/*.runtime.test.js`: 멱등성/closeout/worker/supervisor 회귀 테스트
@@ -94,11 +95,33 @@ $HOME/.config/cyber-office-v2/runtime.env
 export DISCORD_CEO_BOT_TOKEN=...
 export DISCORD_GOD_BOT_TOKEN=...
 export DISCORD_ADMIN_USER_IDS=801833538605285416
+export CO_OBSIDIAN_PROJECTS_ROOT="/path/to/Obsidian/프로젝트"
+```
+
+`project-registry.json` 예시:
+
+```json
+{
+  "projects": [
+    {
+      "project_slug": "sns-app",
+      "display_name": "SNS App",
+      "discord_channel_id": "123456789012345678",
+      "obsidian_rel_dir": "sns-app"
+    }
+  ]
+}
 ```
 
 현재 동작:
 
-- `ceo`: DM 또는 bot mention을 받아 thread를 만들고 `executeMissionFlow`를 수행
+- `ceo`: 등록된 프로젝트 채널 루트에서만 새 요청을 받는다.
+- 새 요청 첫 줄은 `epic: <제목>` 형식이어야 한다.
+- `ceo`는 project channel 아래에 epic thread를 만들고, 그 thread 안에서 mission을 실행/보고한다.
+- 같은 제목은 normalized exact slug match일 때만 자동으로 기존 epic으로 재사용한다.
+- 비슷한 열린 epic이 있으면 `1/2/3/new` 선택지를 먼저 제시하고, semantic auto-bind는 하지 않는다.
+- epic thread당 active mission은 1개만 허용한다.
+- 실제 문서 정본은 target project의 Obsidian 폴더 아래 `_cyber-office/epics/<epic_slug>/...`에 기록된다.
 - `god`: `status`, `doctor`, `supervisor lease`, `supervisor tick`, `supervisor daemon` 명령 처리
 - 실제 worker 실행은 `claude` 인증과 role별 MCP 환경에 의존한다.
 - 수동 단일 프로세스 실행이 필요하면 `npm run bot:ceo`, `npm run bot:god`, `npm run supervisor:daemon`을 쓸 수 있지만, 상시 운영 기본값은 `co start`다.

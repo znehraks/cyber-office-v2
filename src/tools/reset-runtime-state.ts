@@ -26,6 +26,7 @@ async function main(): Promise<void> {
   await ensureRuntimeLayout(root);
 
   await clearDirectory(root, ["missions"]);
+  await clearDirectory(root, ["epics"]);
   await clearDirectory(root, ["jobs"]);
   await clearDirectory(root, ["ingress"]);
   await clearDirectory(root, ["artifacts"]);
@@ -36,6 +37,10 @@ async function main(): Promise<void> {
   await clearDirectory(root, ["state", "attempt-keys"]);
   await clearDirectory(root, ["state", "reports"]);
   await clearDirectory(root, ["state", "closeouts"]);
+  await clearDirectory(root, ["state", "epic-threads"]);
+  await clearDirectory(root, ["state", "epic-slugs"]);
+  await clearDirectory(root, ["state", "pending-epic-resolutions"]);
+  await clearDirectory(root, ["state", "local-projects"]);
   await fs.rm(runtimePath(root, "state", "supervisor.json"), { force: true });
   await fs.writeFile(runtimePath(root, "events", "events.jsonl"), "", "utf8");
 }

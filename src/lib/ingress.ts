@@ -98,11 +98,19 @@ export async function ingestIngressEvent(
   const duplicate = !claim.created;
 
   if (!existingMission) {
+    if (!payload.projectRef) {
+      throw new Error("projectRef is required for mission ingress");
+    }
+    if (!payload.epicRef) {
+      throw new Error("epicRef is required for mission ingress");
+    }
     const mission = createMission({
       missionId: claim.mission_id,
       ingressKey: claim.canonical_key,
       source: payload.source,
       threadRef: payload.threadRef ?? null,
+      projectRef: payload.projectRef,
+      epicRef: payload.epicRef,
       userRequest: payload.userRequest ?? "",
       category: payload.category ?? "standard",
       priorityFloor: payload.priorityFloor ?? "P1",

@@ -4,7 +4,11 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
 
-import { buildFollowUpReply } from "../src/lib/follow-up.js";
+import { bindEpicMission, createEpicRecord } from "../src/lib/epics.js";
+import {
+  buildFollowUpReply,
+  handleActiveMissionThreadInput,
+} from "../src/lib/follow-up.js";
 import { createJob, transitionJobStatus } from "../src/lib/jobs.js";
 import {
   createMission,
@@ -13,7 +17,6 @@ import {
 } from "../src/lib/missions.js";
 import { recordReport } from "../src/lib/reporting.js";
 import { ensureRuntimeLayout } from "../src/lib/runtime.js";
-import { bindThreadMission } from "../src/lib/thread-missions.js";
 
 async function makeRoot() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "co-v2-follow-up-"));
@@ -23,16 +26,22 @@ async function makeRoot() {
 
 test("follow-up in an active thread returns a status briefing without creating a new mission", async () => {
   const root = await makeRoot();
+  const epic = await createEpicRecord(root, {
+    projectSlug: "cyber-office-runtime",
+    title: "runtime",
+    discordThreadId: "thread-42",
+  });
   const mission = createMission({
     missionId: "mission-follow-up",
     ingressKey: "v1:discord:message_create:follow-up",
     threadRef: { chatId: "thread-42", messageId: "msg-1" },
+    epicRef: epic,
     userRequest: "로그인 이슈를 조사해줘",
     category: "research",
     priorityFloor: "P1",
   });
   await writeMission(root, mission);
-  await bindThreadMission(root, "thread-42", mission.mission_id);
+  await bindEpicMission(root, epic.epic_id, mission.mission_id);
 
   const job = await createJob(root, {
     missionId: mission.mission_id,
@@ -67,7 +76,7 @@ test("follow-up in an active thread returns a status briefing without creating a
   assert.ok(reply);
   assert.equal(reply.missionId, mission.mission_id);
   assert.match(reply.content, /^---$/m);
-  assert.match(reply.content, /^\[진행 상태] 로그인 이슈를 조사해줘$/m);
+  assert.match(reply.content, /^\[진행 상태] 로그인 이슈 현재 상태$/m);
   assert.match(reply.content, /현재 researcher \/ standard가 작업을 진행 중/);
   assert.match(
     reply.content,
@@ -85,12 +94,54 @@ test("follow-up in an active thread returns a status briefing without creating a
   assert.equal(missions.length, 1);
 });
 
+test("active mission thread only accepts status and after-this commands", async () => {
+  const root = await makeRoot();
+  const epic = await createEpicRecord(root, {
+    projectSlug: "cyber-office-runtime",
+    title: "runtime",
+    discordThreadId: "thread-77",
+  });
+  const mission = createMission({
+    missionId: "mission-active-commands",
+    ingressKey: "v1:discord:message_create:active-commands",
+    threadRef: { chatId: "thread-77", messageId: "msg-77" },
+    epicRef: epic,
+    userRequest: "대시보드 만들어줘",
+    category: "standard",
+    priorityFloor: "P1",
+  });
+  await writeMission(root, mission);
+  await bindEpicMission(root, epic.epic_id, mission.mission_id);
+
+  const rejected = await handleActiveMissionThreadInput(root, {
+    threadId: "thread-77",
+    requestingUserId: "user-1",
+    content: "그럼 이 버튼도 바꿔줘",
+  });
+  assert.equal(rejected.kind, "rejected");
+  assert.match(rejected.content, /`status`|`after-this:`/);
+
+  const queued = await handleActiveMissionThreadInput(root, {
+    threadId: "thread-77",
+    requestingUserId: "user-1",
+    content: "after-this: 버튼 카피도 수정해줘",
+  });
+  assert.equal(queued.kind, "queued");
+  assert.match(queued.content, /현재 작업이 끝나는 즉시 이어서 처리/);
+});
+
 test("follow-up lookup ignores completed missions bound to the same thread", async () => {
   const root = await makeRoot();
+  const epic = await createEpicRecord(root, {
+    projectSlug: "cyber-office-runtime",
+    title: "runtime",
+    discordThreadId: "thread-99",
+  });
   const mission = createMission({
     missionId: "mission-complete",
     ingressKey: "v1:discord:message_create:complete",
     threadRef: { chatId: "thread-99", messageId: "msg-99" },
+    epicRef: epic,
     userRequest: "결과를 정리해줘",
     category: "standard",
     priorityFloor: "P1",
@@ -98,7 +149,7 @@ test("follow-up lookup ignores completed missions bound to the same thread", asy
   mission.status = "completed";
   mission.closeout.status = "passed";
   await writeMission(root, mission);
-  await bindThreadMission(root, "thread-99", mission.mission_id);
+  await bindEpicMission(root, epic.epic_id, mission.mission_id);
 
   const reply = await buildFollowUpReply(root, "thread-99");
   assert.equal(reply, null);

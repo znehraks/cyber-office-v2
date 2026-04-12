@@ -9,6 +9,7 @@ import { expectRecord, readString } from "./validation.js";
 export const RUNTIME_DIRS = [
   "runtime",
   "runtime/missions",
+  "runtime/epics",
   "runtime/jobs",
   "runtime/events",
   "runtime/artifacts",
@@ -22,7 +23,13 @@ export const RUNTIME_DIRS = [
   "runtime/state/attempt-keys",
   "runtime/state/reports",
   "runtime/state/closeouts",
-  "runtime/state/thread-missions",
+  "runtime/state/pre-mission-claims",
+  "runtime/state/epic-threads",
+  "runtime/state/epic-slugs",
+  "runtime/state/pending-epic-resolutions",
+  "runtime/state/pending-workspace-requests",
+  "runtime/state/queued-followups",
+  "runtime/state/local-projects",
 ];
 
 export interface ResourceLockState {

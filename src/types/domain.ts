@@ -42,6 +42,23 @@ export type IngressClaimStatus =
   | "materialized"
   | "failed"
   | "recovered";
+export type EpicStatus = "open" | "paused" | "closed";
+export type OutcomeKind =
+  | "research_brief"
+  | "plan_package"
+  | "design_package"
+  | "code_change";
+export type PreMissionClaimStatus =
+  | "claimed"
+  | "awaiting_workspace"
+  | "materialized"
+  | "expired"
+  | "cancelled";
+export type PendingWorkspaceStatus =
+  | "pending"
+  | "resolved"
+  | "expired"
+  | "cancelled";
 
 const PRIORITIES: Priority[] = ["P0", "P1", "P2", "P3"];
 const JOB_STATUSES: JobStatus[] = [
@@ -57,6 +74,26 @@ const CLAIM_STATUSES: IngressClaimStatus[] = [
   "failed",
   "recovered",
 ];
+const EPIC_STATUSES: EpicStatus[] = ["open", "paused", "closed"];
+const OUTCOME_KINDS: OutcomeKind[] = [
+  "research_brief",
+  "plan_package",
+  "design_package",
+  "code_change",
+];
+const PRE_MISSION_CLAIM_STATUSES: PreMissionClaimStatus[] = [
+  "claimed",
+  "awaiting_workspace",
+  "materialized",
+  "expired",
+  "cancelled",
+];
+const PENDING_WORKSPACE_STATUSES: PendingWorkspaceStatus[] = [
+  "pending",
+  "resolved",
+  "expired",
+  "cancelled",
+];
 const ROLE_KINDS: RoleKind[] = ["control", "utility", "high", "specialist"];
 const ROLE_MODELS: RoleModel[] = ["haiku", "sonnet", "opus"];
 const ROLE_TIERS: Tier[] = ["low", "standard", "high", "admin"];
@@ -70,6 +107,108 @@ export interface ThreadRef {
 export interface ThreadMissionBinding {
   chat_id: string;
   mission_id: string;
+  updated_at: string;
+}
+
+export interface ProjectRegistryEntry {
+  project_slug: string;
+  display_name: string;
+  discord_channel_id: string;
+  obsidian_rel_dir: string;
+}
+
+export interface ProjectRegistryFile {
+  projects: ProjectRegistryEntry[];
+}
+
+export interface ProjectRef extends ProjectRegistryEntry {
+  obsidian_project_dir: string;
+}
+
+export interface EpicRecord {
+  epic_id: string;
+  project_slug: string;
+  title: string;
+  slug: string;
+  discord_thread_id: string;
+  status: EpicStatus;
+  active_mission_id: string | null;
+  obsidian_note_ref: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EpicThreadIndex {
+  discord_thread_id: string;
+  epic_id: string;
+  updated_at: string;
+}
+
+export interface EpicSlugIndex {
+  project_slug: string;
+  epic_slug: string;
+  epic_id: string;
+  updated_at: string;
+}
+
+export interface PendingEpicResolutionCandidate {
+  epic_id: string;
+  title: string;
+  slug: string;
+  discord_thread_id: string;
+}
+
+export interface PendingEpicResolution {
+  resolution_id: string;
+  project_slug: string;
+  channel_id: string;
+  source_message_id: string;
+  requesting_user_id: string;
+  epic_title: string;
+  request_body: string;
+  request_text: string;
+  candidates: PendingEpicResolutionCandidate[];
+  requested_at: string;
+  expires_at: string;
+  updated_at: string;
+}
+
+export interface PreMissionClaim {
+  canonical_key: string;
+  key_hash: string;
+  source: string;
+  event_type: string;
+  upstream_event_id: string;
+  channel_id: string;
+  requesting_user_id: string;
+  status: PreMissionClaimStatus;
+  created_at: string;
+  updated_at: string;
+  workspace_request_id: string | null;
+  mission_id: string | null;
+}
+
+export interface PendingWorkspaceRequest {
+  workspace_request_id: string;
+  project_slug: string;
+  epic_id: string;
+  epic_thread_id: string;
+  requesting_user_id: string;
+  source_message_id: string;
+  original_request: string;
+  outcome_kind: OutcomeKind;
+  status: PendingWorkspaceStatus;
+  workspace_path: string | null;
+  requested_at: string;
+  expires_at: string;
+  updated_at: string;
+}
+
+export interface QueuedFollowUp {
+  epic_thread_id: string;
+  requesting_user_id: string;
+  request_text: string;
+  queued_at: string;
   updated_at: string;
 }
 
@@ -93,6 +232,8 @@ export interface Mission {
   source: string;
   ingress_key: string | null;
   thread_ref: ThreadRef | null;
+  project_ref: ProjectRef;
+  epic_ref: EpicRecord;
   user_request: string;
   status: string;
   category: string;
@@ -113,6 +254,8 @@ export interface MissionInput {
   source?: string | undefined;
   ingressKey?: string | null | undefined;
   threadRef?: ThreadRef | null | undefined;
+  projectRef?: ProjectRef | undefined;
+  epicRef?: EpicRecord | undefined;
   userRequest: string;
   status?: string | undefined;
   category: string;
@@ -189,6 +332,8 @@ export interface PacketManifest {
   open_questions: string[];
   allowed_write_roots: string[];
   working_dir: string;
+  outcome_kind?: OutcomeKind | undefined;
+  canonical_deliverable_name?: string | undefined;
 }
 
 export interface JobKeyIndex {
@@ -201,6 +346,8 @@ export interface IngressPayload {
   eventType: string;
   upstreamEventId: string;
   threadRef?: ThreadRef | null | undefined;
+  projectRef?: ProjectRef | undefined;
+  epicRef?: EpicRecord | undefined;
   userRequest?: string | undefined;
   category?: string | undefined;
   priorityFloor?: Priority | undefined;
@@ -235,6 +382,26 @@ export interface IngestResult {
   missionId: string;
   ingressKey: string;
   duplicate: boolean;
+}
+
+export interface ResultFile {
+  outcome_kind: OutcomeKind;
+  result_summary: string;
+  completed_items: string[];
+  remaining_work: string[];
+  risks: string[];
+  deliverable_refs: string[];
+  key_findings?: string[] | undefined;
+  recommended_next_steps?: string[] | undefined;
+  documents_created?: string[] | undefined;
+  decisions_made?: string[] | undefined;
+  open_questions?: string[] | undefined;
+  design_decisions?: string[] | undefined;
+  handoff_notes?: string[] | undefined;
+  workspace_ref?: string | undefined;
+  changed_paths?: string[] | undefined;
+  verification?: string[] | undefined;
+  follow_up_tasks?: string[] | undefined;
 }
 
 export interface ReportInput {
@@ -367,10 +534,15 @@ export interface ExecuteMissionOptions {
   messageId?: string | undefined;
   chatId?: string | undefined;
   request?: string | undefined;
+  projectRef?: ProjectRef | undefined;
+  epicRef?: EpicRecord | undefined;
   claudeBin?: string | undefined;
   extraArgs?: string[] | undefined;
   now?: string | undefined;
   onReport?: ((report: ReportRecord) => Promise<void>) | undefined;
+  outcomeKind?: OutcomeKind | undefined;
+  workspacePath?: string | undefined;
+  testScenario?: "retry-once" | undefined;
 }
 
 export function parseThreadRef(value: unknown): ThreadRef {
@@ -389,6 +561,255 @@ export function parseThreadMissionBinding(
     chat_id: readString(record, "chat_id", "thread_mission_binding"),
     mission_id: readString(record, "mission_id", "thread_mission_binding"),
     updated_at: readString(record, "updated_at", "thread_mission_binding"),
+  };
+}
+
+export function parseProjectRegistryEntry(
+  value: unknown,
+): ProjectRegistryEntry {
+  const record = expectRecord(value, "project_registry_entry");
+  return {
+    project_slug: readString(record, "project_slug", "project_registry_entry"),
+    display_name: readString(record, "display_name", "project_registry_entry"),
+    discord_channel_id: readString(
+      record,
+      "discord_channel_id",
+      "project_registry_entry",
+    ),
+    obsidian_rel_dir: readString(
+      record,
+      "obsidian_rel_dir",
+      "project_registry_entry",
+    ),
+  };
+}
+
+export function parseProjectRegistryFile(value: unknown): ProjectRegistryFile {
+  const record = expectRecord(value, "project_registry");
+  return {
+    projects: readArray(record, "projects", "project_registry", (item) =>
+      parseProjectRegistryEntry(item),
+    ),
+  };
+}
+
+export function parseProjectRef(value: unknown): ProjectRef {
+  const record = expectRecord(value, "project_ref");
+  return {
+    project_slug: readString(record, "project_slug", "project_ref"),
+    display_name: readString(record, "display_name", "project_ref"),
+    discord_channel_id: readString(record, "discord_channel_id", "project_ref"),
+    obsidian_rel_dir: readString(record, "obsidian_rel_dir", "project_ref"),
+    obsidian_project_dir: readString(
+      record,
+      "obsidian_project_dir",
+      "project_ref",
+    ),
+  };
+}
+
+export function parseEpicRecord(value: unknown): EpicRecord {
+  const record = expectRecord(value, "epic");
+  return {
+    epic_id: readString(record, "epic_id", "epic"),
+    project_slug: readString(record, "project_slug", "epic"),
+    title: readString(record, "title", "epic"),
+    slug: readString(record, "slug", "epic"),
+    discord_thread_id: readString(record, "discord_thread_id", "epic"),
+    status: readEnum(record, "status", EPIC_STATUSES, "epic"),
+    active_mission_id: readOptionalString(record, "active_mission_id", "epic"),
+    obsidian_note_ref: readString(record, "obsidian_note_ref", "epic"),
+    created_at: readString(record, "created_at", "epic"),
+    updated_at: readString(record, "updated_at", "epic"),
+  };
+}
+
+export function parseEpicThreadIndex(value: unknown): EpicThreadIndex {
+  const record = expectRecord(value, "epic_thread_index");
+  return {
+    discord_thread_id: readString(
+      record,
+      "discord_thread_id",
+      "epic_thread_index",
+    ),
+    epic_id: readString(record, "epic_id", "epic_thread_index"),
+    updated_at: readString(record, "updated_at", "epic_thread_index"),
+  };
+}
+
+export function parseEpicSlugIndex(value: unknown): EpicSlugIndex {
+  const record = expectRecord(value, "epic_slug_index");
+  return {
+    project_slug: readString(record, "project_slug", "epic_slug_index"),
+    epic_slug: readString(record, "epic_slug", "epic_slug_index"),
+    epic_id: readString(record, "epic_id", "epic_slug_index"),
+    updated_at: readString(record, "updated_at", "epic_slug_index"),
+  };
+}
+
+export function parsePendingEpicResolutionCandidate(
+  value: unknown,
+): PendingEpicResolutionCandidate {
+  const record = expectRecord(value, "pending_epic_resolution_candidate");
+  return {
+    epic_id: readString(record, "epic_id", "pending_epic_resolution_candidate"),
+    title: readString(record, "title", "pending_epic_resolution_candidate"),
+    slug: readString(record, "slug", "pending_epic_resolution_candidate"),
+    discord_thread_id: readString(
+      record,
+      "discord_thread_id",
+      "pending_epic_resolution_candidate",
+    ),
+  };
+}
+
+export function parsePendingEpicResolution(
+  value: unknown,
+): PendingEpicResolution {
+  const record = expectRecord(value, "pending_epic_resolution");
+  return {
+    resolution_id: readString(
+      record,
+      "resolution_id",
+      "pending_epic_resolution",
+    ),
+    project_slug: readString(record, "project_slug", "pending_epic_resolution"),
+    channel_id: readString(record, "channel_id", "pending_epic_resolution"),
+    source_message_id: readString(
+      record,
+      "source_message_id",
+      "pending_epic_resolution",
+    ),
+    requesting_user_id: readString(
+      record,
+      "requesting_user_id",
+      "pending_epic_resolution",
+    ),
+    epic_title: readString(record, "epic_title", "pending_epic_resolution"),
+    request_body: readString(record, "request_body", "pending_epic_resolution"),
+    request_text: readString(record, "request_text", "pending_epic_resolution"),
+    candidates: readArray(
+      record,
+      "candidates",
+      "pending_epic_resolution",
+      (item) => parsePendingEpicResolutionCandidate(item),
+    ),
+    requested_at: readString(record, "requested_at", "pending_epic_resolution"),
+    expires_at: readString(record, "expires_at", "pending_epic_resolution"),
+    updated_at: readString(record, "updated_at", "pending_epic_resolution"),
+  };
+}
+
+export function parsePreMissionClaim(value: unknown): PreMissionClaim {
+  const record = expectRecord(value, "pre_mission_claim");
+  return {
+    canonical_key: readString(record, "canonical_key", "pre_mission_claim"),
+    key_hash: readString(record, "key_hash", "pre_mission_claim"),
+    source: readString(record, "source", "pre_mission_claim"),
+    event_type: readString(record, "event_type", "pre_mission_claim"),
+    upstream_event_id: readString(
+      record,
+      "upstream_event_id",
+      "pre_mission_claim",
+    ),
+    channel_id: readString(record, "channel_id", "pre_mission_claim"),
+    requesting_user_id: readString(
+      record,
+      "requesting_user_id",
+      "pre_mission_claim",
+    ),
+    status: readEnum(
+      record,
+      "status",
+      PRE_MISSION_CLAIM_STATUSES,
+      "pre_mission_claim",
+    ),
+    created_at: readString(record, "created_at", "pre_mission_claim"),
+    updated_at: readString(record, "updated_at", "pre_mission_claim"),
+    workspace_request_id: readOptionalString(
+      record,
+      "workspace_request_id",
+      "pre_mission_claim",
+    ),
+    mission_id: readOptionalString(record, "mission_id", "pre_mission_claim"),
+  };
+}
+
+export function parsePendingWorkspaceRequest(
+  value: unknown,
+): PendingWorkspaceRequest {
+  const record = expectRecord(value, "pending_workspace_request");
+  return {
+    workspace_request_id: readString(
+      record,
+      "workspace_request_id",
+      "pending_workspace_request",
+    ),
+    project_slug: readString(
+      record,
+      "project_slug",
+      "pending_workspace_request",
+    ),
+    epic_id: readString(record, "epic_id", "pending_workspace_request"),
+    epic_thread_id: readString(
+      record,
+      "epic_thread_id",
+      "pending_workspace_request",
+    ),
+    requesting_user_id: readString(
+      record,
+      "requesting_user_id",
+      "pending_workspace_request",
+    ),
+    source_message_id: readString(
+      record,
+      "source_message_id",
+      "pending_workspace_request",
+    ),
+    original_request: readString(
+      record,
+      "original_request",
+      "pending_workspace_request",
+    ),
+    outcome_kind: readEnum(
+      record,
+      "outcome_kind",
+      OUTCOME_KINDS,
+      "pending_workspace_request",
+    ),
+    status: readEnum(
+      record,
+      "status",
+      PENDING_WORKSPACE_STATUSES,
+      "pending_workspace_request",
+    ),
+    workspace_path: readOptionalString(
+      record,
+      "workspace_path",
+      "pending_workspace_request",
+    ),
+    requested_at: readString(
+      record,
+      "requested_at",
+      "pending_workspace_request",
+    ),
+    expires_at: readString(record, "expires_at", "pending_workspace_request"),
+    updated_at: readString(record, "updated_at", "pending_workspace_request"),
+  };
+}
+
+export function parseQueuedFollowUp(value: unknown): QueuedFollowUp {
+  const record = expectRecord(value, "queued_follow_up");
+  return {
+    epic_thread_id: readString(record, "epic_thread_id", "queued_follow_up"),
+    requesting_user_id: readString(
+      record,
+      "requesting_user_id",
+      "queued_follow_up",
+    ),
+    request_text: readString(record, "request_text", "queued_follow_up"),
+    queued_at: readString(record, "queued_at", "queued_follow_up"),
+    updated_at: readString(record, "updated_at", "queued_follow_up"),
   };
 }
 
@@ -437,6 +858,8 @@ export function parseMission(value: unknown): Mission {
       "mission",
       parseThreadRef,
     ),
+    project_ref: readObject(record, "project_ref", "mission", parseProjectRef),
+    epic_ref: readObject(record, "epic_ref", "mission", parseEpicRecord),
     user_request: readString(record, "user_request", "mission"),
     status: readString(record, "status", "mission"),
     category: readString(record, "category", "mission"),
@@ -527,6 +950,13 @@ export function parsePacketManifest(value: unknown): PacketManifest {
       "packet",
     ),
     working_dir: readString(record, "working_dir", "packet"),
+    outcome_kind:
+      readOptionalString(record, "outcome_kind", "packet") === null
+        ? undefined
+        : readEnum(record, "outcome_kind", OUTCOME_KINDS, "packet"),
+    canonical_deliverable_name:
+      readOptionalString(record, "canonical_deliverable_name", "packet") ??
+      undefined,
   };
 }
 
@@ -610,6 +1040,46 @@ export function parseCloseoutFile(value: unknown): CloseoutFile {
       "closeout",
     ),
     next_steps: readOptionalStringArray(record, "next_steps", "closeout"),
+  };
+}
+
+export function parseResultFile(value: unknown): ResultFile {
+  const record = expectRecord(value, "result");
+  return {
+    outcome_kind: readEnum(record, "outcome_kind", OUTCOME_KINDS, "result"),
+    result_summary: readString(record, "result_summary", "result"),
+    completed_items: readStringArray(record, "completed_items", "result"),
+    remaining_work: readOptionalStringArray(record, "remaining_work", "result"),
+    risks: readOptionalStringArray(record, "risks", "result"),
+    deliverable_refs: readStringArray(record, "deliverable_refs", "result"),
+    key_findings: readOptionalStringArray(record, "key_findings", "result"),
+    recommended_next_steps: readOptionalStringArray(
+      record,
+      "recommended_next_steps",
+      "result",
+    ),
+    documents_created: readOptionalStringArray(
+      record,
+      "documents_created",
+      "result",
+    ),
+    decisions_made: readOptionalStringArray(record, "decisions_made", "result"),
+    open_questions: readOptionalStringArray(record, "open_questions", "result"),
+    design_decisions: readOptionalStringArray(
+      record,
+      "design_decisions",
+      "result",
+    ),
+    handoff_notes: readOptionalStringArray(record, "handoff_notes", "result"),
+    workspace_ref:
+      readOptionalString(record, "workspace_ref", "result") ?? undefined,
+    changed_paths: readOptionalStringArray(record, "changed_paths", "result"),
+    verification: readOptionalStringArray(record, "verification", "result"),
+    follow_up_tasks: readOptionalStringArray(
+      record,
+      "follow_up_tasks",
+      "result",
+    ),
   };
 }
 

@@ -2,12 +2,16 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 import type {
+  EpicRecord,
   ExecuteMissionOptions,
   GodCommand,
+  Mission,
   PacketManifest,
   ReportRecord,
+  ResultFile,
   RoutingCategory,
   RoutingDecision,
+  WorkerRunResult,
 } from "../types/domain.js";
 import {
   buildHandoffCompletedReport,
@@ -19,13 +23,36 @@ import {
   createRequestSummary,
 } from "./ceo-reporting.js";
 import { verifyMissionCloseout } from "./closeout.js";
+import {
+  bindEpicMission,
+  clearEpicMission,
+  readEpic,
+  writeEpic,
+} from "./epics.js";
 import { ingestIngressEvent } from "./ingress.js";
-import { createJob, writePacket } from "./jobs.js";
-import { readMission } from "./missions.js";
+import {
+  createJob,
+  ensureRetryJob,
+  readJob,
+  updateJob,
+  writePacket,
+} from "./jobs.js";
+import { missionArtifactDir, readMission, writeMission } from "./missions.js";
+import { writeEpicOverviewNote, writeMissionCanonicalNote } from "./notes.js";
+import {
+  ensureLocalProjectRef,
+  epicNotePath,
+  missionDeliverablePath,
+} from "./projects.js";
 import { recordReport } from "./reporting.js";
+import {
+  canonicalDeliverableFileName,
+  classifyOutcomeKind,
+  readResultFile,
+} from "./results.js";
 import { ROUTING_RULES, findRole } from "./roles.js";
-import { runtimePath } from "./runtime.js";
-import { bindThreadMission, clearThreadMission } from "./thread-missions.js";
+import { resolveRepoRoot } from "./root.js";
+import { createStampedId, runtimePath } from "./runtime.js";
 import { runWorker } from "./worker-runner.js";
 
 const NICHE_ROUTING: Array<{
@@ -80,6 +107,37 @@ const NICHE_ROUTING: Array<{
     category: "research",
   },
 ];
+const repoRoot = resolveRepoRoot(import.meta.url);
+
+function resolveWorkerExecution(
+  options: ExecuteMissionOptions,
+  attemptNo: number,
+): {
+  claudeBin?: string | undefined;
+  extraArgs?: string[] | undefined;
+} {
+  if (options.testScenario !== "retry-once") {
+    return {
+      claudeBin: options.claudeBin,
+      extraArgs: options.extraArgs,
+    };
+  }
+
+  return {
+    claudeBin: process.execPath,
+    extraArgs: [
+      path.join(
+        repoRoot,
+        "dist",
+        "test",
+        "fixtures",
+        attemptNo === 0
+          ? "fake-claude-invalid-result.js"
+          : "fake-claude-success.js",
+      ),
+    ],
+  };
+}
 
 export function classifyRequest(request: string): RoutingDecision {
   const text = request.trim();
@@ -139,7 +197,13 @@ function buildPacket(
   root: string,
   jobId: string,
   inputRef: string,
+  options: {
+    outcomeKind: ExecuteMissionOptions["outcomeKind"];
+    workspacePath?: string | undefined;
+  },
 ): PacketManifest {
+  const artifactDir = runtimePath(root, "artifacts", jobId);
+  const outcomeKind = options.outcomeKind ?? "research_brief";
   return {
     required_refs: [inputRef],
     optional_refs: [],
@@ -149,20 +213,69 @@ function buildPacket(
     ],
     acceptance_checks: ["summary exists", "closeout docs exist"],
     open_questions: [],
-    allowed_write_roots: [runtimePath(root, "artifacts", jobId)],
-    working_dir: root,
+    allowed_write_roots: [
+      artifactDir,
+      ...(options.workspacePath ? [options.workspacePath] : []),
+    ],
+    working_dir: options.workspacePath ?? root,
+    outcome_kind: outcomeKind,
+    canonical_deliverable_name: canonicalDeliverableFileName(outcomeKind),
   };
 }
 
 async function writeMissionCloseout(
   root: string,
-  missionId: string,
+  mission: Mission,
   request: string,
   routing: RoutingDecision,
   summaryPath: string,
-): Promise<void> {
-  const artifactDir = runtimePath(root, "artifacts", missionId);
+): Promise<{
+  missionNotePath: string;
+  epicNotePath: string;
+  resultSummary: string;
+  nextSteps: string[];
+}> {
+  const artifactDir = missionArtifactDir(root, mission.mission_id);
   await fs.mkdir(artifactDir, { recursive: true });
+  const summaryBody = await fs.readFile(summaryPath, "utf8");
+  const workerArtifactDir = path.dirname(summaryPath);
+  const result: ResultFile = await readResultFile(workerArtifactDir);
+  const canonicalDeliverableName = canonicalDeliverableFileName(
+    result.outcome_kind,
+  );
+  const sourceDeliverablePath = path.join(
+    workerArtifactDir,
+    canonicalDeliverableName,
+  );
+  const missionArtifactDeliverablePath = path.join(
+    artifactDir,
+    canonicalDeliverableName,
+  );
+  const targetDeliverablePath = missionDeliverablePath(
+    mission.project_ref,
+    mission.epic_ref.slug,
+    mission.mission_id,
+    canonicalDeliverableName,
+  );
+  await fs.mkdir(path.dirname(targetDeliverablePath), { recursive: true });
+  await fs.copyFile(sourceDeliverablePath, targetDeliverablePath);
+  await fs.copyFile(sourceDeliverablePath, missionArtifactDeliverablePath);
+  const missionResult: ResultFile = {
+    ...result,
+    deliverable_refs: [missionArtifactDeliverablePath, targetDeliverablePath],
+  };
+  await fs.writeFile(
+    path.join(artifactDir, "result.json"),
+    JSON.stringify(missionResult, null, 2),
+    "utf8",
+  );
+  const resultSummary = result.result_summary;
+  const nextSteps =
+    result.remaining_work.length > 0
+      ? result.remaining_work
+      : [
+          "해당 epic thread에서 후속 요청이 있으면 다음 mission으로 이어갑니다.",
+        ];
 
   const statusBody = [
     "# 현재 상태",
@@ -171,20 +284,21 @@ async function writeMissionCloseout(
     "",
     "# 이번 세션에서 완료한 것",
     "",
+    ...result.completed_items.map((item) => `- ${item}`),
     `- 요청 처리: ${request}`,
-    `- 라우팅: ${routing.worker} / ${routing.tier}`,
-    `- 산출물: ${summaryPath}`,
+    `- 담당: ${routing.worker} / ${routing.tier}`,
+    `- 결과 요약: ${resultSummary}`,
     "",
   ].join("\n");
   const nextStepsBody = [
     "# 다음 우선순위",
     "",
-    "- Discord ingress wiring 운영 연결",
+    ...nextSteps,
     "",
     "# 재개 순서",
     "",
-    "- supervisor daemon 상시 실행",
-    "- ceo bot 실제 token으로 smoke",
+    `- epic thread ${mission.epic_ref.discord_thread_id}에서 후속 요청 확인`,
+    "- 필요 시 같은 epic에서 다음 mission 시작",
     "",
   ].join("\n");
 
@@ -199,15 +313,46 @@ async function writeMissionCloseout(
     JSON.stringify(
       {
         status: "complete",
-        obsidian_note_ref: path.join(root, "README.md"),
-        completed_items: [request, `${routing.worker} / ${routing.tier}`],
-        next_steps: ["Discord ceo wiring", "supervisor daemonize"],
+        obsidian_note_ref: "",
+        completed_items: result.completed_items,
+        next_steps: nextSteps,
       },
       null,
       2,
     ),
     "utf8",
   );
+
+  const missionNotePath = await writeMissionCanonicalNote(root, mission, {
+    summaryBody,
+    result,
+    completedItems: result.completed_items.map((item) => `- ${item}`),
+    nextSteps: nextSteps.map((item) => `- ${item}`),
+    risks: result.risks.map((item) => `- ${item}`),
+    deliverableName: canonicalDeliverableName,
+  });
+  const epicNotePath = await writeEpicOverviewNote(root, mission);
+  await fs.writeFile(
+    path.join(artifactDir, "closeout.json"),
+    JSON.stringify(
+      {
+        status: "complete",
+        obsidian_note_ref: missionNotePath,
+        completed_items: result.completed_items,
+        next_steps: nextSteps,
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  return {
+    missionNotePath,
+    epicNotePath,
+    resultSummary,
+    nextSteps,
+  };
 }
 
 export async function executeMissionFlow(
@@ -222,8 +367,29 @@ export async function executeMissionFlow(
   closeout: Awaited<ReturnType<typeof verifyMissionCloseout>>;
   reports: ReportRecord[];
   requestBrief: string;
+  missionNotePath: string;
+  epicNotePath: string;
+  resultSummary: string;
+  nextStep: string;
 }> {
   const request = String(options.request ?? "").trim();
+  const projectRef = options.projectRef ?? (await ensureLocalProjectRef(root));
+  const epicRef = options.epicRef ?? {
+    epic_id: createStampedId(
+      "epic",
+      `${projectRef.project_slug}:${options.chatId ?? "cli"}`,
+      options.now,
+    ),
+    project_slug: projectRef.project_slug,
+    title: "runtime",
+    slug: "runtime",
+    discord_thread_id: options.chatId ?? "cli",
+    status: "open" as const,
+    active_mission_id: null,
+    obsidian_note_ref: epicNotePath(projectRef, "runtime"),
+    created_at: options.now ?? new Date().toISOString(),
+    updated_at: options.now ?? new Date().toISOString(),
+  };
   const routing = classifyRequest(request);
   const generatedMessageId = `manual-${String(Date.now())}`;
   const messageId = options.messageId ?? generatedMessageId;
@@ -232,6 +398,8 @@ export async function executeMissionFlow(
     eventType: options.eventType ?? "message_create",
     upstreamEventId: messageId,
     threadRef: { chatId: options.chatId ?? "cli", messageId },
+    projectRef,
+    epicRef,
     userRequest: request,
     category: routing.category,
     priorityFloor: "P1",
@@ -242,16 +410,28 @@ export async function executeMissionFlow(
   if (!mission) {
     throw new Error(`Mission missing after ingress: ${ingress.missionId}`);
   }
-  const chatId = mission.thread_ref?.chatId ?? options.chatId ?? null;
   const requestSummary = createRequestSummary(mission.user_request);
   const requestBrief = createRequestBrief(mission.user_request);
+  const outcomeKind =
+    options.outcomeKind ?? classifyOutcomeKind(request, routing);
   const reports: ReportRecord[] = [];
 
-  if (chatId) {
-    await bindThreadMission(root, chatId, mission.mission_id, {
-      now: options.now,
-    });
+  const existingEpic = await readEpic(root, mission.epic_ref.epic_id);
+  if (!existingEpic) {
+    await writeEpic(root, mission.epic_ref);
   }
+  const boundEpic = await bindEpicMission(
+    root,
+    mission.epic_ref.epic_id,
+    mission.mission_id,
+    {
+      now: options.now,
+    },
+  );
+  mission.epic_ref = boundEpic;
+  await writeMission(root, mission);
+  await writeMissionCanonicalNote(root, mission);
+  await writeEpicOverviewNote(root, mission);
 
   const pushReport = async (
     reportKey: string,
@@ -293,32 +473,87 @@ export async function executeMissionFlow(
     now: options.now,
   });
 
-  await writePacket(root, job.job_id, buildPacket(root, job.job_id, inputRef));
+  await writePacket(
+    root,
+    job.job_id,
+    buildPacket(root, job.job_id, inputRef, {
+      outcomeKind,
+      workspacePath: options.workspacePath,
+    }),
+  );
   await pushReport(
     "job.routed",
     buildJobRoutedReport(requestSummary, routing, job.packet_ref),
   );
-  const workerResult = await runWorker(root, job.worker, job.job_id, {
-    claudeBin: options.claudeBin,
-    extraArgs: options.extraArgs,
-    now: options.now,
-  });
+  let activeJob = job;
+  let workerResult: WorkerRunResult;
+  let retryReported = false;
+  try {
+    workerResult = await runWorker(root, activeJob.worker, activeJob.job_id, {
+      ...resolveWorkerExecution(options, 0),
+      now: options.now,
+    });
+  } catch (error) {
+    if (options.testScenario !== "retry-once") {
+      throw error;
+    }
+
+    const failedJob = await readJob(root, activeJob.job_id);
+    if (!failedJob) {
+      throw error;
+    }
+
+    const updatedFailedJob = await updateJob(
+      root,
+      failedJob.job_id,
+      async (current) => ({
+        ...current,
+        retry_count: (current.retry_count ?? 0) + 1,
+        report_status: {
+          ...current.report_status,
+          last_retry_at: options.now ?? new Date().toISOString(),
+        },
+      }),
+      { now: options.now },
+    );
+    activeJob = await ensureRetryJob(root, updatedFailedJob, {
+      now: options.now,
+    });
+    await pushReport(
+      "job.retried",
+      buildRetryReviewReport({
+        requestSummary,
+        retryRequired: true,
+        retryReason:
+          "1차 실행 결과가 산출물 계약을 충족하지 않아 보완 재실행을 시작합니다.",
+        nextAssignee: `${routing.worker} / ${routing.tier}`,
+      }),
+    );
+    retryReported = true;
+    workerResult = await runWorker(root, activeJob.worker, activeJob.job_id, {
+      ...resolveWorkerExecution(options, 1),
+      now: options.now,
+    });
+  }
+  const workerResultFile = await readResultFile(workerResult.artifactDir);
 
   await pushReport(
     "handoff.completed",
-    buildHandoffCompletedReport(requestSummary, workerResult.summaryPath),
+    buildHandoffCompletedReport(requestSummary, workerResultFile),
   );
-  await pushReport(
-    "job.retried",
-    buildRetryReviewReport({
-      requestSummary,
-      retryRequired: false,
-    }),
-  );
+  if (!retryReported) {
+    await pushReport(
+      "job.retried",
+      buildRetryReviewReport({
+        requestSummary,
+        retryRequired: false,
+      }),
+    );
+  }
 
-  await writeMissionCloseout(
+  const closeoutDraft = await writeMissionCloseout(
     root,
-    mission.mission_id,
+    mission,
     request,
     routing,
     workerResult.summaryPath,
@@ -329,8 +564,28 @@ export async function executeMissionFlow(
   );
 
   const closeout = await verifyMissionCloseout(root, mission.mission_id);
-  if (chatId) {
-    await clearThreadMission(root, chatId, mission.mission_id);
+  await clearEpicMission(root, mission.epic_ref.epic_id, mission.mission_id, {
+    now: options.now,
+  });
+  const [finalMission, finalEpic] = await Promise.all([
+    readMission(root, mission.mission_id),
+    readEpic(root, mission.epic_ref.epic_id),
+  ]);
+  if (finalMission && finalEpic) {
+    finalMission.epic_ref = finalEpic;
+    await writeMission(root, finalMission);
+    const finalResult = await readResultFile(
+      path.dirname(workerResult.summaryPath),
+    );
+    await writeMissionCanonicalNote(root, finalMission, {
+      summaryBody: await fs.readFile(workerResult.summaryPath, "utf8"),
+      result: finalResult,
+      completedItems: finalResult.completed_items.map((item) => `- ${item}`),
+      nextSteps: closeoutDraft.nextSteps.map((item) => `- ${item}`),
+      risks: finalResult.risks.map((item) => `- ${item}`),
+      deliverableName: canonicalDeliverableFileName(outcomeKind),
+    });
+    await writeEpicOverviewNote(root, finalMission);
   }
   return {
     missionId: mission.mission_id,
@@ -341,6 +596,10 @@ export async function executeMissionFlow(
     closeout,
     reports,
     requestBrief,
+    missionNotePath: closeoutDraft.missionNotePath,
+    epicNotePath: closeoutDraft.epicNotePath,
+    resultSummary: closeoutDraft.resultSummary,
+    nextStep: closeoutDraft.nextSteps[0] ?? "",
   };
 }
 
