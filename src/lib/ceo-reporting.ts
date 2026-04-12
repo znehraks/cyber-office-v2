@@ -355,7 +355,8 @@ export function buildHandoffCompletedReport(
       result.remaining_work.length > 0
         ? "핵심 결과가 확보돼 남은 작업과 후속 우선순위를 분리해 정리할 수 있습니다."
         : "핵심 결과가 확보돼 이번 작업을 마감 정리할 수 있습니다.",
-    next: result.remaining_work[0] ?? "상세 문서와 후속 필요 여부를 정리합니다.",
+    next:
+      result.remaining_work[0] ?? "상세 문서와 후속 필요 여부를 정리합니다.",
     evidence: result.result_summary,
   };
 }

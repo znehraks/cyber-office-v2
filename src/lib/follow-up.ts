@@ -7,8 +7,8 @@ import { renderDiscordFollowUpBriefing } from "./discord-briefing.js";
 import { clearEpicMission, findEpicByThreadId } from "./epics.js";
 import { listJobsForMission, readPacket } from "./jobs.js";
 import { readMission } from "./missions.js";
-import { listMissionReports } from "./reporting.js";
 import { missionNotePath } from "./projects.js";
+import { listMissionReports } from "./reporting.js";
 import { queueAfterThisFollowUp } from "./requests.js";
 import {
   canonicalDeliverableFileName,
