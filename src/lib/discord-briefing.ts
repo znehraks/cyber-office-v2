@@ -136,12 +136,14 @@ export function renderDiscordFinalMessage(input: {
     CO_OBSIDIAN_PROJECTS_ROOT:
       input.obsidianProjectsRoot ?? process.env["CO_OBSIDIAN_PROJECTS_ROOT"],
   });
+  const remainingWork = input.resultFile.remaining_work[0]?.trim() ?? "";
   return joinLines([
     "---",
     `[최종 결과] ${createPublicBriefingTitle(input.requestText, "final")}`,
     createPublicRequestLead(input.requestText, "final"),
     `결과: ${input.resultFile.result_summary}`,
     ...createPublicOutcomeLines(input.resultFile),
+    ...(remainingWork !== "" ? [`남은 일: ${remainingWork}`] : []),
     `다음: ${input.nextStep}`,
     `담당: ${input.worker} / ${input.tier}`,
     `mission: ${input.missionId}`,

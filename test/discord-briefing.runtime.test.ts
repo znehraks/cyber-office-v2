@@ -149,6 +149,10 @@ test("public progress and final messages prioritize actual result and hide summa
   assert.match(finalMessage, /npm run lint/);
   assert.match(finalMessage, /완료한 항목은 .*반영했습니다\./);
   assert.match(finalMessage, /검증 항목은 .*점검했습니다\./);
+  assert.match(
+    finalMessage,
+    /^남은 일: 테스트 보강과 후속 기능 우선순위 정리$/m,
+  );
   assert.doesNotMatch(finalMessage, /드래그 정렬/);
   assert.doesNotMatch(finalMessage, /까지까지|까지이고|등을이고|등을까지/);
   assert.match(
