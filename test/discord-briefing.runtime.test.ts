@@ -106,6 +106,10 @@ test("public progress and final messages prioritize actual result and hide summa
   assert.match(progress, /할 일 추가, 완료 토글, 삭제/);
   assert.match(progress, /src\/App\.tsx/);
   assert.match(progress, /npm test/);
+  assert.match(
+    progress,
+    /^남은 일: 테스트 보강과 후속 기능 우선순위 정리$/m,
+  );
   assert.match(progress, /완료한 항목은 .*반영했습니다\./);
   assert.match(progress, /검증 항목은 .*점검했습니다\./);
   assert.doesNotMatch(progress, /드래그 정렬/);

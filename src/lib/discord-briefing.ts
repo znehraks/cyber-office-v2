@@ -74,9 +74,11 @@ function buildProgressLines(
   options: DiscordBriefingOptions,
 ): string[] {
   if (options.resultFile) {
+    const remainingWork = options.resultFile.remaining_work[0]?.trim() ?? "";
     return [
       report.snapshot,
       ...createPublicOutcomeLines(options.resultFile),
+      ...(remainingWork !== "" ? [`남은 일: ${remainingWork}`] : []),
     ].filter((line) => line.trim() !== "");
   }
   return [report.snapshot, report.completed].filter(
