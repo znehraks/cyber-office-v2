@@ -287,11 +287,11 @@ export function createPublicRequestLead(
     case "intake":
       return `요청하신 ${subject} ${action} 건을 실행 가능한 작업으로 정리했고, 바로 착수 가능한 상태로 맞췄습니다.`;
     case "progress":
-      return `요청하신 ${subject} ${action} 건은 1차 결과를 확보했고, 이번 mission에서 만든 내용을 기준으로 정리하고 있습니다.`;
+      return `요청하신 ${subject} ${action} 건은 1차 결과를 확보했고, 이번 작업에서 나온 핵심 결과를 기준으로 정리하고 있습니다.`;
     case "retry":
       return `요청하신 ${subject} ${action} 건은 현재 결과만으로 마감 근거가 부족해 보완 실행으로 이어갑니다.`;
     case "final":
-      return `요청하신 ${subject} ${action} 건은 이번 mission 범위까지 정리를 마쳤습니다.`;
+      return `요청하신 ${subject} ${action} 건은 이번 요청에서 맡긴 범위까지 정리를 마쳤습니다.`;
     case "status":
       return `요청하신 ${subject} ${action} 건의 현재 진행 상태를 최신 기준으로 정리해드립니다.`;
   }
@@ -339,7 +339,7 @@ export function buildHandoffCompletedReport(
   const progressTransition =
     result.remaining_work.length > 0
       ? "현재 확보한 결과를 기준으로 남은 작업과 후속 우선순위를 바로 정리할 수 있습니다."
-      : "현재 확보한 결과를 기준으로 이번 mission을 바로 마감 정리할 수 있습니다.";
+      : "현재 확보한 결과를 기준으로 이번 작업을 바로 마감 정리할 수 있습니다.";
   return {
     stage: "결과 확보",
     requestSummary,
@@ -350,9 +350,8 @@ export function buildHandoffCompletedReport(
     transitionReason:
       result.remaining_work.length > 0
         ? "핵심 결과가 확보돼 남은 작업과 후속 우선순위를 분리해 정리할 수 있습니다."
-        : "핵심 결과가 확보돼 이번 mission을 마감 정리할 수 있습니다.",
-    next:
-      result.remaining_work[0] ?? "mission note와 후속 필요 여부를 정리합니다.",
+        : "핵심 결과가 확보돼 이번 작업을 마감 정리할 수 있습니다.",
+    next: result.remaining_work[0] ?? "상세 문서와 후속 필요 여부를 정리합니다.",
     evidence: result.result_summary,
   };
 }

@@ -86,7 +86,7 @@ test("public progress and final messages prioritize actual result and hide summa
       report_key: "handoff.completed",
       stage: "결과 확보",
       snapshot:
-        "투두앱 기본 기능 1차 구현을 마쳤고, 이번 mission에서 확인한 결과를 바로 정리할 수 있습니다.",
+        "투두앱 기본 기능 1차 구현을 마쳤고, 이번 작업에서 확인한 결과를 바로 정리할 수 있습니다.",
       completed:
         "할 일 추가, 완료 토글, 삭제, 전체/진행 중/완료 필터, localStorage 저장까지 반영했습니다.",
       next: "테스트 보강과 후속 기능 우선순위를 정리합니다.",
@@ -103,6 +103,7 @@ test("public progress and final messages prioritize actual result and hide summa
   );
   assert.ok(progress);
   assert.match(progress, /^\[진행] 간단한 투두앱 진행 결과$/m);
+  assert.match(progress, /이번 작업에서 나온 핵심 결과를 기준으로 정리/);
   assert.match(progress, /할 일 추가, 완료 토글, 삭제/);
   assert.match(progress, /src\/App\.tsx/);
   assert.match(progress, /npm test/);
@@ -120,6 +121,7 @@ test("public progress and final messages prioritize actual result and hide summa
   );
   assert.doesNotMatch(progress, /summary\.md|\/tmp\/summary\.md/);
   assert.doesNotMatch(progress, /\/obsidian\//);
+  assert.doesNotMatch(progress, /이번 mission\b/iu);
 
   const noRetry = renderDiscordReportBriefing(
     makeReport({
@@ -149,6 +151,7 @@ test("public progress and final messages prioritize actual result and hide summa
     closeoutStatus: "passed",
   });
   assert.match(finalMessage, /^\[최종 결과] 간단한 투두앱 최종 결과$/m);
+  assert.match(finalMessage, /이번 요청에서 맡긴 범위까지 정리를 마쳤습니다\./);
   assert.match(finalMessage, /src\/App\.tsx/);
   assert.match(finalMessage, /npm run lint/);
   assert.match(finalMessage, /완료한 항목은 .*반영했습니다\./);
@@ -166,6 +169,34 @@ test("public progress and final messages prioritize actual result and hide summa
   assert.match(finalMessage, /^담당: app-dev \/ standard$/m);
   assert.doesNotMatch(finalMessage, /^summary: /m);
   assert.doesNotMatch(finalMessage, /\/obsidian\//);
+  assert.doesNotMatch(finalMessage, /이번 mission\b/iu);
+});
+
+test("public retry briefing stays natural and avoids internal jargon", () => {
+  const retry = renderDiscordReportBriefing(
+    makeReport({
+      report_key: "job.retried",
+      stage: "마감 점검",
+      snapshot:
+        "현재 결과만으로는 완료 판단 근거가 부족해 누락된 검증과 산출물을 보완하는 단계로 다시 이어갑니다.",
+      completed:
+        "중간 결과를 점검한 결과, 검증 근거를 더 보강해야 안전하게 마무리할 수 있다고 판단했습니다.",
+      next: "app-dev / standard가 누락된 검증과 산출물을 보완합니다.",
+      evidence: "테스트 근거 부족",
+    }),
+    {
+      requestText:
+        "간단한 투두앱을 실제 구현으로 진행해줘. 최소 기능은 추가, 완료 토글, 삭제야.",
+    },
+  );
+  assert.ok(retry);
+  assert.match(retry, /^\[보완 진행] 간단한 투두앱 보완 진행$/m);
+  assert.match(retry, /보완 실행으로 이어갑니다\./);
+  assert.match(retry, /검증 근거를 더 보강해야 안전하게 마무리/);
+  assert.doesNotMatch(
+    retry,
+    /현재 단계:|단계 전환 이유:|한눈요약:|summary\.md|packet|closeout 검증|\bmission\b/iu,
+  );
 });
 
 test("public research progress briefing exposes actual findings without looking like a log", () => {
@@ -174,7 +205,7 @@ test("public research progress briefing exposes actual findings without looking 
       report_key: "handoff.completed",
       stage: "결과 확보",
       snapshot:
-        "로그인 실패 원인을 정리했고, 이번 mission에서 확인한 핵심 근거를 기준으로 후속 조치를 이어갈 수 있습니다.",
+        "로그인 실패 원인을 정리했고, 이번 작업에서 확인한 핵심 근거를 기준으로 후속 조치를 이어갈 수 있습니다.",
       completed:
         "Discord 토큰 미설정, Claude CLI 미인증, doctor 사전 감지 공백까지 확인했습니다.",
       next: "실제 환경에서 토큰 주입과 인증 상태를 다시 점검합니다.",
