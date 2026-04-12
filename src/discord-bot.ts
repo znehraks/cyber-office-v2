@@ -45,6 +45,7 @@ import {
 } from "./lib/orchestrator.js";
 import {
   epicNotePath,
+  missionNotePath,
   projectOperationsDir,
   resolveObsidianProjectsRoot,
   resolveProjectByChannelId,
@@ -219,6 +220,11 @@ async function runMissionInEpicThread(input: {
     onReport: async (report) => {
       const briefing = renderDiscordReportBriefing(report, {
         requestText: input.request,
+        notePath: missionNotePath(
+          input.projectRef,
+          input.epicRef.slug,
+          report.mission_id,
+        ),
       });
       if (briefing !== null) {
         await input.thread.send(briefing);
@@ -232,7 +238,7 @@ async function runMissionInEpicThread(input: {
       missionId: result.missionId,
       worker: result.routing.worker,
       tier: result.routing.tier,
-      resultSummary: result.resultSummary,
+      resultFile: result.resultFile,
       nextStep: result.nextStep,
       notePath: result.missionNotePath,
       summaryPath: result.workerResult.summaryPath,

@@ -1,3 +1,6 @@
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+
 import type { Job, ReportRecord } from "../types/domain.js";
 import { renderDiscordFollowUpBriefing } from "./discord-briefing.js";
 import { clearEpicMission, findEpicByThreadId } from "./epics.js";
@@ -5,6 +8,8 @@ import { listJobsForMission } from "./jobs.js";
 import { readMission } from "./missions.js";
 import { listMissionReports } from "./reporting.js";
 import { queueAfterThisFollowUp } from "./requests.js";
+import { readResultFile, resultFilePath } from "./results.js";
+import { exists, runtimePath } from "./runtime.js";
 
 const REPORT_ORDER: Record<string, number> = {
   "mission.created": 1,
@@ -30,10 +35,68 @@ function pickLatestJob(jobs: Job[]): Job | null {
   return jobs.at(-1) ?? null;
 }
 
-function describeFollowUpStatus(
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function withPeriod(value: string): string {
+  const normalized = normalizeWhitespace(value);
+  if (normalized === "") {
+    return "";
+  }
+  return /[.!?]$/u.test(normalized) ? normalized : `${normalized}.`;
+}
+
+function extractSummaryNarrative(summary: string): string | null {
+  const sectionMatch =
+    /##\s*실제 만든 것\s+([\s\S]*?)(?:\n##\s+|\n---|$)/u.exec(summary);
+  const section = sectionMatch?.[1] ?? summary;
+  for (const rawLine of section.split("\n")) {
+    const line = normalizeWhitespace(rawLine);
+    if (
+      line === "" ||
+      line.startsWith("#") ||
+      line.startsWith("|") ||
+      /^[-*]\s+/u.test(line) ||
+      /^```/u.test(line)
+    ) {
+      continue;
+    }
+    return withPeriod(
+      line
+        .replace(/\*\*/gu, "")
+        .replace(/`/gu, "")
+        .replace(/\[\[([^\]]+)\]\]/gu, "$1"),
+    );
+  }
+  return null;
+}
+
+async function readProgressDetail(
+  root: string,
+  latestJob: Job,
+): Promise<string | null> {
+  const artifactDir = runtimePath(root, "artifacts", latestJob.job_id);
+  const resultPath = resultFilePath(artifactDir);
+  if (await exists(resultPath)) {
+    const result = await readResultFile(artifactDir);
+    return withPeriod(result.result_summary);
+  }
+
+  const summaryPath = path.join(artifactDir, "summary.md");
+  if (await exists(summaryPath)) {
+    const summary = await fs.readFile(summaryPath, "utf8");
+    return extractSummaryNarrative(summary);
+  }
+
+  return null;
+}
+
+async function describeFollowUpStatus(
+  root: string,
   latestReport: ReportRecord | null,
   latestJob: Job | null,
-): { statusLine: string; detailLine: string; nextLine: string } {
+): Promise<{ statusLine: string; detailLine: string; nextLine: string }> {
   if (latestJob?.status === "failed") {
     return {
       statusLine:
@@ -65,14 +128,15 @@ function describeFollowUpStatus(
   }
 
   if (latestJob?.status === "running") {
+    const progressDetail = await readProgressDetail(root, latestJob);
     return {
-      statusLine: `현재 ${latestJob.worker} / ${latestJob.tier}가 작업을 진행 중이며, 결과 확보 전 단계입니다.`,
+      statusLine: `현재 ${latestJob.worker} / ${latestJob.tier}가 작업을 이어가고 있습니다.`,
       detailLine:
-        latestReport?.completed ??
-        "요청을 접수한 뒤 담당 작업을 시작할 수 있도록 준비했습니다.",
+        progressDetail ??
+        "현재 요청하신 범위를 실제로 구현하거나 정리하는 중이며, 눈에 보이는 결과가 정리되는 대로 바로 다시 보고드리겠습니다.",
       nextLine:
         latestReport?.next ??
-        "worker 실행 결과를 확인한 뒤 다음 진행 상황을 보고드립니다.",
+        "중간 산출물 정리 후 다음 진행 상황을 이어서 보고드립니다.",
     };
   }
 
@@ -117,7 +181,7 @@ export async function buildFollowUpReply(
   ]);
   const latestReport = pickLatestReport(reports);
   const latestJob = pickLatestJob(jobs);
-  const status = describeFollowUpStatus(latestReport, latestJob);
+  const status = await describeFollowUpStatus(root, latestReport, latestJob);
   return {
     missionId: mission.mission_id,
     content: renderDiscordFollowUpBriefing({

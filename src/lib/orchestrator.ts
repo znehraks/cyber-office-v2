@@ -369,6 +369,7 @@ export async function executeMissionFlow(
   requestBrief: string;
   missionNotePath: string;
   epicNotePath: string;
+  resultFile: ResultFile;
   resultSummary: string;
   nextStep: string;
 }> {
@@ -598,6 +599,7 @@ export async function executeMissionFlow(
     requestBrief,
     missionNotePath: closeoutDraft.missionNotePath,
     epicNotePath: closeoutDraft.epicNotePath,
+    resultFile: workerResultFile,
     resultSummary: closeoutDraft.resultSummary,
     nextStep: closeoutDraft.nextSteps[0] ?? "",
   };

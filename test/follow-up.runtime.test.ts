@@ -77,7 +77,10 @@ test("follow-up in an active thread returns a status briefing without creating a
   assert.equal(reply.missionId, mission.mission_id);
   assert.match(reply.content, /^---$/m);
   assert.match(reply.content, /^\[진행 상태] 로그인 이슈 현재 상태$/m);
-  assert.match(reply.content, /현재 researcher \/ standard가 작업을 진행 중/);
+  assert.match(
+    reply.content,
+    /현재 researcher \/ standard가 작업을 이어가고 있습니다/,
+  );
   assert.match(
     reply.content,
     /^다음: researcher \/ standard가 조사 결과를 정리합니다\.$/m,
@@ -85,13 +88,62 @@ test("follow-up in an active thread returns a status briefing without creating a
   assert.match(reply.content, /^담당: ceo \/ standard$/m);
   assert.doesNotMatch(
     reply.content,
-    /한눈요약:|요청 요지:|현재 단계:|단계 전환 이유:|manifest\.json/,
+    /한눈요약:|요청 요지:|현재 단계:|단계 전환 이유:|manifest\.json|packet/,
   );
 
   const missions = (
     await fs.readdir(path.join(root, "runtime", "missions"))
   ).filter((file) => file.endsWith(".json"));
   assert.equal(missions.length, 1);
+});
+
+test("follow-up status uses summary artifact to explain actual progress", async () => {
+  const root = await makeRoot();
+  const epic = await createEpicRecord(root, {
+    projectSlug: "todo-app-e2e",
+    title: "todo app",
+    discordThreadId: "thread-43",
+  });
+  const mission = createMission({
+    missionId: "mission-follow-up-summary",
+    ingressKey: "v1:discord:message_create:follow-up-summary",
+    threadRef: { chatId: "thread-43", messageId: "msg-43" },
+    epicRef: epic,
+    userRequest: "간단한 투두앱을 구현해줘",
+    category: "standard",
+    priorityFloor: "P1",
+  });
+  await writeMission(root, mission);
+  await bindEpicMission(root, epic.epic_id, mission.mission_id);
+
+  const job = await createJob(root, {
+    missionId: mission.mission_id,
+    worker: "app-dev",
+    category: "standard",
+    priority: "P1",
+    task: "투두앱 구현",
+    deliverable: "summary.md 작성",
+  });
+  await transitionJobStatus(root, job.job_id, ["queued"], "running");
+  const artifactDir = path.join(root, "runtime", "artifacts", job.job_id);
+  await fs.mkdir(artifactDir, { recursive: true });
+  await fs.writeFile(
+    path.join(artifactDir, "summary.md"),
+    "# 진행 보고\n\n## 실제 만든 것\nReact 기반 투두앱 기본 구조와 추가/토글/삭제 기능까지 구현했습니다.\n",
+    "utf8",
+  );
+
+  const reply = await buildFollowUpReply(root, "thread-43");
+  assert.ok(reply);
+  assert.match(
+    reply.content,
+    /현재 app-dev \/ standard가 작업을 이어가고 있습니다/,
+  );
+  assert.match(
+    reply.content,
+    /React 기반 투두앱 기본 구조와 추가\/토글\/삭제 기능까지 구현했습니다\./,
+  );
+  assert.doesNotMatch(reply.content, /결과 확보 전 단계|packet/);
 });
 
 test("active mission thread only accepts status and after-this commands", async () => {

@@ -108,50 +108,11 @@ test("executeMissionFlow completes a one-shot ceo mission with reports and close
     /default standard|category=|clean path|verify 시작/,
   );
   assert.match(result.reports[0]?.content ?? "", /배정 단계로 넘어갑니다/);
-  assert.match(result.reports[1]?.content ?? "", /작업 packet/);
+  assert.match(result.reports[1]?.content ?? "", /요청을 전달했고 바로 착수/);
   assert.doesNotMatch(result.reports[2]?.content ?? "", /summary\.md/);
   assert.match(result.reports[2]?.content ?? "", /결과 정리, 문서 작성/);
   assert.match(result.reports[3]?.content ?? "", /재시도 필요 여부/);
   assert.match(result.reports[4]?.content ?? "", /mission 완료를 확정/);
-
-  const publicReports = result.reports
-    .map((report) =>
-      renderDiscordReportBriefing(report, {
-        requestText: "로그인 이슈를 조사해줘",
-      }),
-    )
-    .filter((report): report is string => report !== null);
-  assert.equal(publicReports.length, 2);
-  assert.match(publicReports[0] ?? "", /^\[접수] 로그인 이슈 착수$/m);
-  assert.match(publicReports[1] ?? "", /^\[진행] 로그인 이슈 진행 결과$/m);
-  assert.doesNotMatch(
-    publicReports.join("\n\n"),
-    /한눈요약:|요청 요지:|현재 단계:|방금 진행한 내용:|단계 전환 이유:|summary\.md/,
-  );
-  assert.match(publicReports.join("\n\n"), /^다음: /m);
-  assert.match(publicReports.join("\n\n"), /^담당: ceo \/ standard$/m);
-
-  const finalMessage = renderDiscordFinalMessage({
-    requestText: "로그인 이슈를 조사해줘",
-    missionId: result.missionId,
-    worker: result.routing.worker,
-    tier: result.routing.tier,
-    resultSummary: result.resultSummary,
-    nextStep: result.nextStep,
-    notePath: result.missionNotePath,
-    summaryPath: result.workerResult.summaryPath,
-    closeoutStatus: result.closeout.status,
-  });
-  assert.match(finalMessage, /^\[최종 결과] 로그인 이슈 최종 결과$/m);
-  assert.doesNotMatch(finalMessage, /^summary: /m);
-  assert.match(finalMessage, /^closeout: passed$/m);
-
-  const mission = await readJson(
-    path.join(root, "runtime", "missions", `${result.missionId}.json`),
-    parseMission,
-  );
-  assert.equal(mission.project_ref.project_slug, "sns-app");
-  assert.equal(mission.epic_ref.epic_id, "epic-login");
 
   const missionNotePath = path.join(
     projectDir,
@@ -168,6 +129,56 @@ test("executeMissionFlow completes a one-shot ceo mission with reports and close
     "로그인-플로우",
     "EPIC.md",
   );
+
+  const publicReports = result.reports
+    .map((report) =>
+      renderDiscordReportBriefing(report, {
+        requestText: "로그인 이슈를 조사해줘",
+        notePath: missionNotePath,
+        obsidianProjectsRoot: obsidianRoot,
+      }),
+    )
+    .filter((report): report is string => report !== null);
+  assert.equal(publicReports.length, 2);
+  assert.match(publicReports[0] ?? "", /^\[접수] 로그인 이슈 착수$/m);
+  assert.match(publicReports[1] ?? "", /^\[진행] 로그인 이슈 진행 결과$/m);
+  assert.doesNotMatch(
+    publicReports.join("\n\n"),
+    /한눈요약:|요청 요지:|현재 단계:|방금 진행한 내용:|단계 전환 이유:|summary\.md/,
+  );
+  assert.match(publicReports.join("\n\n"), /^다음: /m);
+  assert.match(publicReports.join("\n\n"), /^담당: ceo \/ standard$/m);
+  assert.match(
+    publicReports[1] ?? "",
+    /^문서: sns-app\/_cyber-office\/epics\/로그인-플로우\/missions\/.*\.md$/m,
+  );
+
+  const finalMessage = renderDiscordFinalMessage({
+    requestText: "로그인 이슈를 조사해줘",
+    missionId: result.missionId,
+    worker: result.routing.worker,
+    tier: result.routing.tier,
+    resultFile: result.resultFile,
+    nextStep: result.nextStep,
+    notePath: result.missionNotePath,
+    obsidianProjectsRoot: obsidianRoot,
+    summaryPath: result.workerResult.summaryPath,
+    closeoutStatus: result.closeout.status,
+  });
+  assert.match(finalMessage, /^\[최종 결과] 로그인 이슈 최종 결과$/m);
+  assert.doesNotMatch(finalMessage, /^summary: /m);
+  assert.match(finalMessage, /^closeout: passed$/m);
+  assert.match(
+    finalMessage,
+    /^문서: sns-app\/_cyber-office\/epics\/로그인-플로우\/missions\/.*\.md$/m,
+  );
+
+  const mission = await readJson(
+    path.join(root, "runtime", "missions", `${result.missionId}.json`),
+    parseMission,
+  );
+  assert.equal(mission.project_ref.project_slug, "sns-app");
+  assert.equal(mission.epic_ref.epic_id, "epic-login");
   const [missionNote, epicNote, closeout] = await Promise.all([
     fs.readFile(missionNotePath, "utf8"),
     fs.readFile(epicNotePath, "utf8"),
@@ -187,7 +198,7 @@ test("executeMissionFlow completes a one-shot ceo mission with reports and close
   assert.match(missionNote, /canonical deliverable ref/);
   assert.match(epicNote, /열린 mission \/ 종료 mission 목록/);
   assert.equal(closeout.obsidian_note_ref, missionNotePath);
-  assert.match(finalMessage, /^note: /m);
+  assert.doesNotMatch(finalMessage, /^note: /m);
 });
 
 test("parseGodCommand recognizes admin operations and rejects freeform text", () => {
@@ -250,6 +261,15 @@ test("executeMissionFlow emits a single public retry briefing on the determinist
     .map((report) =>
       renderDiscordReportBriefing(report, {
         requestText: "로그인 이슈를 조사해줘",
+        notePath: path.join(
+          projectDir,
+          "_cyber-office",
+          "epics",
+          "retry-epic",
+          "missions",
+          `${result.missionId}.md`,
+        ),
+        obsidianProjectsRoot: obsidianRoot,
       }),
     )
     .filter((report): report is string => report !== null);

@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      CO_OBSIDIAN_PROJECTS_ROOT: ${{ github.workspace }}/test/fixtures/obsidian-projects
     steps:
       - name: Checkout
         uses: actions/checkout@v4

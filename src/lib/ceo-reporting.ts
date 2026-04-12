@@ -39,6 +39,14 @@ function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function withPeriod(value: string): string {
+  const normalized = normalizeWhitespace(value);
+  if (normalized === "") {
+    return "";
+  }
+  return /[.!?]$/u.test(normalized) ? normalized : `${normalized}.`;
+}
+
 function stripControlTokens(value: string): string {
   return normalizeWhitespace(
     value
@@ -124,24 +132,93 @@ function deriveActionLabel(request: string): string {
   return "진행";
 }
 
-function joinNaturalList(items: string[], maxItems: number): string {
+function summarizeItems(
+  items: string[],
+  maxItems: number,
+): { text: string; truncated: boolean } {
   const filtered = items
     .map((item) => normalizeWhitespace(item))
     .filter(Boolean);
   if (filtered.length === 0) {
-    return "";
+    return { text: "", truncated: false };
   }
   const visible = filtered.slice(0, maxItems);
-  const suffix = filtered.length > maxItems ? " 등을" : "까지";
-  return `${visible.join(", ")}${suffix}`;
+  return {
+    text: visible.join(", "),
+    truncated: filtered.length > maxItems,
+  };
 }
 
 function createCompletedItemsSentence(result: ResultFile): string {
-  const completed = joinNaturalList(result.completed_items, 5);
-  if (completed === "") {
+  const completed = summarizeItems(result.completed_items, 5);
+  if (completed.text === "") {
     return "이번 단계의 핵심 결과를 정리했습니다.";
   }
-  return `${completed} 반영했습니다.`;
+  return completed.truncated
+    ? `완료한 항목은 ${completed.text} 등을 반영했습니다.`
+    : `완료한 항목은 ${completed.text}까지 반영했습니다.`;
+}
+
+export function createPublicOutcomeDetail(result: ResultFile): string {
+  switch (result.outcome_kind) {
+    case "research_brief": {
+      const findings = summarizeItems(result.key_findings ?? [], 2);
+      if (findings.text === "") {
+        return "";
+      }
+      return findings.truncated
+        ? `핵심 확인 사항은 ${findings.text} 등입니다.`
+        : `핵심 확인 사항은 ${findings.text}입니다.`;
+    }
+    case "plan_package": {
+      const documents = summarizeItems(result.documents_created ?? [], 3);
+      if (documents.text === "") {
+        return "";
+      }
+      return documents.truncated
+        ? `이번에 정리한 문서는 ${documents.text} 등입니다.`
+        : `이번에 정리한 문서는 ${documents.text}입니다.`;
+    }
+    case "design_package": {
+      const decisions = summarizeItems(result.design_decisions ?? [], 3);
+      if (decisions.text === "") {
+        return "";
+      }
+      return decisions.truncated
+        ? `이번에 확정한 디자인 방향은 ${decisions.text} 등입니다.`
+        : `이번에 확정한 디자인 방향은 ${decisions.text}입니다.`;
+    }
+    case "code_change": {
+      const changed = summarizeItems(result.changed_paths ?? [], 4);
+      const verification = summarizeItems(result.verification ?? [], 2);
+      if (changed.text !== "" && verification.text !== "") {
+        const changedLine = changed.truncated
+          ? `변경한 영역은 ${changed.text} 등입니다.`
+          : `변경한 영역은 ${changed.text}입니다.`;
+        const verificationLine = verification.truncated
+          ? `검증 항목은 ${verification.text} 등을 점검했습니다.`
+          : `검증 항목은 ${verification.text}까지 점검했습니다.`;
+        return `${changedLine} ${verificationLine}`;
+      }
+      if (changed.text !== "") {
+        return changed.truncated
+          ? `변경한 영역은 ${changed.text} 등입니다.`
+          : `변경한 영역은 ${changed.text}입니다.`;
+      }
+      if (verification.text !== "") {
+        return verification.truncated
+          ? `검증 항목은 ${verification.text} 등을 점검했습니다.`
+          : `검증 항목은 ${verification.text}까지 점검했습니다.`;
+      }
+      return "";
+    }
+  }
+}
+
+export function createPublicOutcomeNarrative(result: ResultFile): string {
+  const completed = createCompletedItemsSentence(result);
+  const outcome = createPublicOutcomeDetail(result);
+  return normalizeWhitespace([completed, outcome].filter(Boolean).join(" "));
 }
 
 export function createRequestBrief(request: string): string {
@@ -237,7 +314,7 @@ export function buildJobRoutedReport(
     stage: "담당 배정",
     requestSummary,
     snapshot: `${routing.worker} / ${routing.tier} 담당을 확정했습니다. 입력 자료와 작업 경계가 정리돼 바로 작업을 시작할 수 있습니다.`,
-    completed: `${routing.worker} / ${routing.tier} 담당에 작업 packet을 전달하고 착수 조건을 맞췄습니다.`,
+    completed: `${routing.worker} / ${routing.tier} 담당에 요청을 전달했고 바로 착수할 수 있도록 준비를 마쳤습니다.`,
     transitionReason:
       "입력 자료와 작업 경계가 정리돼 worker가 별도 확인 없이 바로 실행할 수 있습니다.",
     next: `${routing.worker} / ${routing.tier}가 작업을 수행하고 결과 산출물을 작성합니다.`,
@@ -249,11 +326,18 @@ export function buildHandoffCompletedReport(
   requestSummary: string,
   result: ResultFile,
 ): CeoStageReport {
+  const resultSummary = withPeriod(result.result_summary);
+  const progressTransition =
+    result.remaining_work.length > 0
+      ? "현재 확보한 결과를 기준으로 남은 작업과 후속 우선순위를 바로 정리할 수 있습니다."
+      : "현재 확보한 결과를 기준으로 이번 mission을 바로 마감 정리할 수 있습니다.";
   return {
     stage: "결과 확보",
     requestSummary,
-    snapshot: `${result.result_summary} 이번 mission에서 만든 결과를 기준으로 마감 정리에 들어갈 수 있습니다.`,
-    completed: createCompletedItemsSentence(result),
+    snapshot: normalizeWhitespace(
+      [resultSummary, progressTransition].join(" "),
+    ),
+    completed: createPublicOutcomeNarrative(result),
     transitionReason:
       result.remaining_work.length > 0
         ? "핵심 결과가 확보돼 남은 작업과 후속 우선순위를 분리해 정리할 수 있습니다."

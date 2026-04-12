@@ -46,6 +46,25 @@ export function resolveObsidianProjectsRoot(
   return root;
 }
 
+export function toObsidianRelativePath(
+  targetPath: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  const root = env["CO_OBSIDIAN_PROJECTS_ROOT"] ?? "";
+  if (root === "") {
+    return null;
+  }
+  const relative = path.relative(root, targetPath);
+  if (
+    relative === "" ||
+    relative.startsWith("..") ||
+    path.isAbsolute(relative)
+  ) {
+    return null;
+  }
+  return relative;
+}
+
 export function resolveProjectRef(
   entry: ProjectRegistryEntry,
   env: NodeJS.ProcessEnv = process.env,

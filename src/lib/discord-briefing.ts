@@ -1,8 +1,12 @@
-import type { ReportRecord } from "../types/domain.js";
+import * as process from "node:process";
+
+import type { ReportRecord, ResultFile } from "../types/domain.js";
 import {
   createPublicBriefingTitle,
+  createPublicOutcomeNarrative,
   createPublicRequestLead,
 } from "./ceo-reporting.js";
+import { toObsidianRelativePath } from "./projects.js";
 
 function joinLines(lines: string[]): string {
   return lines.filter((line) => line.trim() !== "").join("\n");
@@ -10,6 +14,9 @@ function joinLines(lines: string[]): string {
 
 interface DiscordBriefingOptions {
   requestText?: string | undefined;
+  notePath?: string | undefined;
+  obsidianProjectsRoot?: string | undefined;
+  resultFile?: ResultFile | undefined;
 }
 
 type PublicStage = "접수" | "진행" | "보완 진행";
@@ -49,6 +56,33 @@ function toPhaseLabel(stage: PublicStage): "intake" | "progress" | "retry" {
   }
 }
 
+function resolvePublicNotePath(options: DiscordBriefingOptions): string | null {
+  if (!options.notePath) {
+    return null;
+  }
+  const env = {
+    ...process.env,
+    CO_OBSIDIAN_PROJECTS_ROOT:
+      options.obsidianProjectsRoot ?? process.env["CO_OBSIDIAN_PROJECTS_ROOT"],
+  };
+  return toObsidianRelativePath(options.notePath, env);
+}
+
+function buildProgressLines(
+  report: ReportRecord,
+  options: DiscordBriefingOptions,
+): string[] {
+  if (options.resultFile) {
+    return [
+      report.snapshot,
+      createPublicOutcomeNarrative(options.resultFile),
+    ].filter((line) => line.trim() !== "");
+  }
+  return [report.snapshot, report.completed].filter(
+    (line) => line.trim() !== "",
+  );
+}
+
 export function renderDiscordReportBriefing(
   report: ReportRecord,
   options: DiscordBriefingOptions = {},
@@ -59,13 +93,28 @@ export function renderDiscordReportBriefing(
   }
   const requestText = resolveRequestText(report, options);
   const phase = toPhaseLabel(publicStage);
+  const notePath =
+    publicStage === "진행" ? resolvePublicNotePath(options) : null;
+  const bodyLines =
+    publicStage === "접수"
+      ? [createPublicRequestLead(requestText, phase), report.snapshot]
+      : publicStage === "진행"
+        ? [
+            createPublicRequestLead(requestText, phase),
+            ...buildProgressLines(report, options),
+          ]
+        : [
+            createPublicRequestLead(requestText, phase),
+            report.snapshot,
+            report.completed,
+          ];
   return joinLines([
     "---",
     `[${publicStage}] ${createPublicBriefingTitle(requestText, phase)}`,
-    createPublicRequestLead(requestText, phase),
-    report.completed,
+    ...bodyLines,
     `다음: ${report.next}`,
     `담당: ${report.role} / ${report.tier}`,
+    ...(notePath ? [`문서: ${notePath}`] : []),
   ]);
 }
 
@@ -74,21 +123,28 @@ export function renderDiscordFinalMessage(input: {
   missionId: string;
   worker: string;
   tier: string;
-  resultSummary: string;
+  resultFile: ResultFile;
   nextStep: string;
   notePath: string;
+  obsidianProjectsRoot?: string | undefined;
   summaryPath?: string | undefined;
   closeoutStatus: string;
 }): string {
+  const publicNotePath = toObsidianRelativePath(input.notePath, {
+    ...process.env,
+    CO_OBSIDIAN_PROJECTS_ROOT:
+      input.obsidianProjectsRoot ?? process.env["CO_OBSIDIAN_PROJECTS_ROOT"],
+  });
   return joinLines([
     "---",
     `[최종 결과] ${createPublicBriefingTitle(input.requestText, "final")}`,
     createPublicRequestLead(input.requestText, "final"),
-    `결과: ${input.resultSummary}`,
+    `결과: ${input.resultFile.result_summary}`,
+    createPublicOutcomeNarrative(input.resultFile),
     `다음: ${input.nextStep}`,
-    `worker: ${input.worker} / ${input.tier}`,
+    `담당: ${input.worker} / ${input.tier}`,
     `mission: ${input.missionId}`,
-    `note: ${input.notePath}`,
+    ...(publicNotePath ? [`문서: ${publicNotePath}`] : []),
     `closeout: ${input.closeoutStatus}`,
   ]);
 }
