@@ -7,6 +7,7 @@ import { clearEpicMission, findEpicByThreadId } from "./epics.js";
 import { listJobsForMission, readPacket } from "./jobs.js";
 import { readMission } from "./missions.js";
 import { listMissionReports } from "./reporting.js";
+import { missionNotePath } from "./projects.js";
 import { queueAfterThisFollowUp } from "./requests.js";
 import {
   canonicalDeliverableFileName,
@@ -176,8 +177,12 @@ async function describeFollowUpStatus(
 
   if (latestJob?.status === "running") {
     const progressDetail = await readProgressDetail(root, latestJob);
+    const taskLabel = normalizeWhitespace(latestJob.input.task);
     return {
-      statusLine: `현재 ${latestJob.worker} / ${latestJob.tier}가 작업을 이어가고 있습니다.`,
+      statusLine:
+        taskLabel === ""
+          ? `현재 ${latestJob.worker} / ${latestJob.tier}가 작업을 이어가고 있습니다.`
+          : `현재 ${latestJob.worker} / ${latestJob.tier}가 ${taskLabel} 작업을 이어가고 있습니다.`,
       detailLine:
         progressDetail ??
         "현재 요청하신 범위를 실제로 구현하거나 정리하는 중이며, 눈에 보이는 결과가 정리되는 대로 바로 다시 보고드리겠습니다.",
@@ -238,6 +243,11 @@ export async function buildFollowUpReply(
       nextLine: status.nextLine,
       role: "ceo",
       tier: "standard",
+      notePath: missionNotePath(
+        mission.project_ref,
+        mission.epic_ref.slug,
+        mission.mission_id,
+      ),
     }),
   };
 }

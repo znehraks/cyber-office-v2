@@ -2,6 +2,7 @@ import * as assert from "node:assert/strict";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+import * as process from "node:process";
 import { test } from "node:test";
 
 import { bindEpicMission, createEpicRecord } from "../src/lib/epics.js";
@@ -24,8 +25,19 @@ async function makeRoot() {
   return root;
 }
 
+function makeProjectRef(projectSlug: string) {
+  return {
+    project_slug: projectSlug,
+    display_name: projectSlug,
+    discord_channel_id: "",
+    obsidian_rel_dir: projectSlug,
+    obsidian_project_dir: path.join("/obsidian", projectSlug),
+  };
+}
+
 test("follow-up in an active thread returns a status briefing without creating a new mission", async () => {
   const root = await makeRoot();
+  process.env["CO_OBSIDIAN_PROJECTS_ROOT"] = "/obsidian";
   const epic = await createEpicRecord(root, {
     projectSlug: "cyber-office-runtime",
     title: "runtime",
@@ -35,6 +47,7 @@ test("follow-up in an active thread returns a status briefing without creating a
     missionId: "mission-follow-up",
     ingressKey: "v1:discord:message_create:follow-up",
     threadRef: { chatId: "thread-42", messageId: "msg-1" },
+    projectRef: makeProjectRef("cyber-office-runtime"),
     epicRef: epic,
     userRequest: "로그인 이슈를 조사해줘",
     category: "research",
@@ -79,13 +92,17 @@ test("follow-up in an active thread returns a status briefing without creating a
   assert.match(reply.content, /^\[진행 상태] 로그인 이슈 현재 상태$/m);
   assert.match(
     reply.content,
-    /현재 researcher \/ standard가 작업을 이어가고 있습니다/,
+    /현재 researcher \/ standard가 로그인 이슈 조사 작업을 이어가고 있습니다/,
   );
   assert.match(
     reply.content,
     /^다음: researcher \/ standard가 조사 결과를 정리합니다\.$/m,
   );
   assert.match(reply.content, /^담당: ceo \/ standard$/m);
+  assert.match(
+    reply.content,
+    /^상세 문서: cyber-office-runtime\/_cyber-office\/epics\/runtime\/missions\/mission-follow-up\.md$/m,
+  );
   assert.doesNotMatch(
     reply.content,
     /한눈요약:|요청 요지:|현재 단계:|단계 전환 이유:|manifest\.json|packet/,
@@ -99,6 +116,7 @@ test("follow-up in an active thread returns a status briefing without creating a
 
 test("follow-up status uses summary artifact to explain actual progress", async () => {
   const root = await makeRoot();
+  process.env["CO_OBSIDIAN_PROJECTS_ROOT"] = "/obsidian";
   const epic = await createEpicRecord(root, {
     projectSlug: "todo-app-e2e",
     title: "todo app",
@@ -108,6 +126,7 @@ test("follow-up status uses summary artifact to explain actual progress", async 
     missionId: "mission-follow-up-summary",
     ingressKey: "v1:discord:message_create:follow-up-summary",
     threadRef: { chatId: "thread-43", messageId: "msg-43" },
+    projectRef: makeProjectRef("todo-app-e2e"),
     epicRef: epic,
     userRequest: "간단한 투두앱을 구현해줘",
     category: "standard",
@@ -137,17 +156,22 @@ test("follow-up status uses summary artifact to explain actual progress", async 
   assert.ok(reply);
   assert.match(
     reply.content,
-    /현재 app-dev \/ standard가 작업을 이어가고 있습니다/,
+    /현재 app-dev \/ standard가 투두앱 구현 작업을 이어가고 있습니다/,
   );
   assert.match(
     reply.content,
     /React 기반 투두앱 기본 구조와 추가\/토글\/삭제 기능까지 구현했습니다\./,
+  );
+  assert.match(
+    reply.content,
+    /^상세 문서: todo-app-e2e\/_cyber-office\/epics\/todo-app\/missions\/mission-follow-up-summary\.md$/m,
   );
   assert.doesNotMatch(reply.content, /결과 확보 전 단계|packet/);
 });
 
 test("follow-up status falls back to canonical deliverable when summary is not ready", async () => {
   const root = await makeRoot();
+  process.env["CO_OBSIDIAN_PROJECTS_ROOT"] = "/obsidian";
   const epic = await createEpicRecord(root, {
     projectSlug: "todo-app-e2e",
     title: "todo app fallback",
@@ -157,6 +181,7 @@ test("follow-up status falls back to canonical deliverable when summary is not r
     missionId: "mission-follow-up-deliverable",
     ingressKey: "v1:discord:message_create:follow-up-deliverable",
     threadRef: { chatId: "thread-44", messageId: "msg-44" },
+    projectRef: makeProjectRef("todo-app-e2e"),
     epicRef: epic,
     userRequest: "간단한 투두앱을 구현해줘",
     category: "standard",
@@ -187,6 +212,10 @@ test("follow-up status falls back to canonical deliverable when summary is not r
   assert.match(
     reply.content,
     /React 기반 투두앱에 할 일 추가, 완료 토글, 삭제 기능을 구현했습니다\./,
+  );
+  assert.match(
+    reply.content,
+    /^상세 문서: todo-app-e2e\/_cyber-office\/epics\/todo-app-fallback\/missions\/mission-follow-up-deliverable\.md$/m,
   );
   assert.doesNotMatch(reply.content, /결과 확보 전 단계|packet/);
 });

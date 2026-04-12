@@ -161,7 +161,18 @@ export function renderDiscordFollowUpBriefing(input: {
   nextLine: string;
   role: string;
   tier: string;
+  notePath?: string | undefined;
+  obsidianProjectsRoot?: string | undefined;
 }): string {
+  const publicNotePath =
+    input.notePath && input.notePath.trim() !== ""
+      ? toObsidianRelativePath(input.notePath, {
+          ...process.env,
+          CO_OBSIDIAN_PROJECTS_ROOT:
+            input.obsidianProjectsRoot ??
+            process.env["CO_OBSIDIAN_PROJECTS_ROOT"],
+        })
+      : null;
   return joinLines([
     "---",
     `[진행 상태] ${createPublicBriefingTitle(input.requestText, "status")}`,
@@ -170,5 +181,6 @@ export function renderDiscordFollowUpBriefing(input: {
     input.detailLine,
     `다음: ${input.nextLine}`,
     `담당: ${input.role} / ${input.tier}`,
+    ...(publicNotePath ? [`상세 문서: ${publicNotePath}`] : []),
   ]);
 }
